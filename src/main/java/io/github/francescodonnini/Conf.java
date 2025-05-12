@@ -1,6 +1,8 @@
 package io.github.francescodonnini;
 
-public class Conf {
+import java.io.Serializable;
+
+public class Conf implements Serializable {
     private final String sparkMaster;
     private final int sparkMasterPort;
     private final String sparkAppName;

@@ -1,5 +1,7 @@
 package io.github.francescodonnini.query;
 
-public interface Query extends AutoCloseable {
+import java.io.Serializable;
+
+public interface Query extends AutoCloseable, Serializable {
     void submit();
 }

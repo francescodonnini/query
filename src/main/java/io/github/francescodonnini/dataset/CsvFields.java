@@ -1,9 +1,8 @@
 package io.github.francescodonnini.dataset;
 
-import java.util.Optional;
-import java.util.regex.PatternSyntaxException;
+import java.io.Serializable;
 
-public class CsvFields {
+public class CsvFields implements Serializable {
     // Indice del campo "Datetime (UTC)"
     public static final int DATETIME_UTC = 0;
     public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";

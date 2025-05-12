@@ -7,7 +7,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class QueryDispatcher {
-    private static final Logger logger = Logger.getLogger("FirstQuery");
+    private static final Logger logger = Logger.getLogger(QueryDispatcher.class.getName());
     public static void main(String[] args) {
         var optionalQueryNumber = tryParseQueryNumber(args);
         if (optionalQueryNumber.isEmpty()) {
@@ -30,9 +30,17 @@ public class QueryDispatcher {
 
     private static void executeFirstQuery(Conf conf) {
         var spark = SparkFactory.getSparkSession(conf);
-        try (var query = new FirstQuery(spark, conf)) {
+        try (var query = new FirstQuery(spark, getDatasetPath(conf), getResultsPath(conf, "firstQuery"))) {
             query.submit();
         }
+    }
+
+    private static String getDatasetPath(Conf conf) {
+        return HdfsUtils.createPath(conf, "data.csv");
+    }
+
+    private static String getResultsPath(Conf conf, String query) {
+        return HdfsUtils.createPath(conf, "user", "spark", query);
     }
 
     private static Optional<Integer> tryParseQueryNumber(String[] args) {
