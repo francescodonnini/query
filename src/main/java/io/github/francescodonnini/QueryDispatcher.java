@@ -1,6 +1,7 @@
 package io.github.francescodonnini;
 
 import io.github.francescodonnini.query.FirstQuery;
+import io.github.francescodonnini.query.SecondQuery;
 
 import java.util.Optional;
 import java.util.logging.Level;
@@ -13,7 +14,7 @@ public class QueryDispatcher {
         if (optionalQueryNumber.isEmpty()) {
             System.exit(1);
         }
-        var queryNumber = optionalQueryNumber.get();
+        int queryNumber = optionalQueryNumber.get();
         var o = ConfFactory.getConf("FirstQuery");
         if (o.isEmpty()) {
             logger.log(Level.SEVERE, "some configuration parameters are missing");
@@ -22,6 +23,8 @@ public class QueryDispatcher {
         var conf = o.get();
         if (queryNumber == 1) {
             executeFirstQuery(conf);
+        } else if (queryNumber == 2) {
+            executeSecondQuery(conf);
         } else {
             logger.log(Level.SEVERE, () -> "unexpected query number " + queryNumber);
             System.exit(1);
@@ -35,8 +38,15 @@ public class QueryDispatcher {
         }
     }
 
+    private static void executeSecondQuery(Conf conf) {
+        var spark = SparkFactory.getSparkSession(conf);
+        try (var query = new SecondQuery(spark, getDatasetPath(conf), getResultsPath(conf, "secondQuery"))) {
+            query.submit();
+        }
+    }
+
     private static String getDatasetPath(Conf conf) {
-        return HdfsUtils.createPath(conf, "data.csv");
+        return HdfsUtils.createPath(conf, conf.getFilePath());
     }
 
     private static String getResultsPath(Conf conf, String query) {

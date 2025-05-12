@@ -10,11 +10,7 @@ public class HdfsUtils implements Serializable {
         return String.format("hdfs://%s:%d", conf.getHdfsHost(), conf.getHdfsPort());
     }
 
-    public static String getDatasetPath(Conf conf) {
-        return String.format("%s/%s", getHdfsPath(conf), conf.getFilePath());
-    }
-
     public static String createPath(Conf conf, String... components) {
-        return Path.of(getHdfsPath(conf), components).toString();
+        return getHdfsPath(conf) + Path.of("/", components);
     }
 }
