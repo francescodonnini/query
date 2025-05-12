@@ -54,12 +54,12 @@ public class FirstQuery implements Query {
     }
 
     private void saveResult(
-            JavaPairRDD<Integer, Double> avgCI,
-            JavaPairRDD<Integer, Double> minCI,
-            JavaPairRDD<Integer, Double> maxCI,
-            JavaPairRDD<Integer, Double> avgCfe,
-            JavaPairRDD<Integer, Double> minCfe,
-            JavaPairRDD<Integer, Double> maxCfe) {
+            JavaPairRDD<Tuple2<String, Integer>, Double> avgCI,
+            JavaPairRDD<Tuple2<String, Integer>, Double> minCI,
+            JavaPairRDD<Tuple2<String, Integer>, Double> maxCI,
+            JavaPairRDD<Tuple2<String, Integer>, Double> avgCfe,
+            JavaPairRDD<Tuple2<String, Integer>, Double> minCfe,
+            JavaPairRDD<Tuple2<String, Integer>, Double> maxCfe) {
         avgCI.union(maxCI)
             .union(minCI)
             .union(avgCfe)
@@ -68,31 +68,31 @@ public class FirstQuery implements Query {
             .saveAsTextFile(resultsPath);
     }
 
-    private JavaPairRDD<Integer, Double> calculateAvg(JavaPairRDD<Integer, Double> rdd) {
+    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateAvg(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
         return rdd.mapToPair(this::addOccurrence)
                 .reduceByKey(this::sum2D)
                 .mapToPair(this::getAvg);
     }
 
-    private JavaPairRDD<Integer, Double> calculateMax(JavaPairRDD<Integer, Double> rdd) {
+    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateMax(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
         return rdd.reduceByKey(Math::max);
     }
 
-    private JavaPairRDD<Integer, Double> calculateMin(JavaPairRDD<Integer, Double> rdd) {
+    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateMin(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
         return rdd.reduceByKey(Math::min);
     }
 
-    private Tuple2<Integer, Double> getCIDPair(String line) {
+    private Tuple2<Tuple2<String, Integer>, Double> getCIDPair(String line) {
         var fields = line.split(",");
-        return new Tuple2<>(getYear(fields), getCID(fields));
+        return new Tuple2<>(getKey(fields), getCID(fields));
     }
 
-    private Tuple2<Integer, Double> getCFEPair(String line) {
+    private Tuple2<Tuple2<String, Integer>, Double> getCFEPair(String line) {
         var fields = line.split(",");
-        return new Tuple2<>(getYear(fields), getCFE(fields));
+        return new Tuple2<>(getKey(fields), getCFE(fields));
     }
 
-    private Tuple2<Integer, Tuple2<Double, Integer>> addOccurrence(Tuple2<Integer, Double> pair) {
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Integer>> addOccurrence(Tuple2<Tuple2<String, Integer>, Double> pair) {
         return new Tuple2<>(pair._1(), new Tuple2<>(pair._2(), 1));
     }
 
@@ -100,7 +100,7 @@ public class FirstQuery implements Query {
         return new Tuple2<>(x._1() + y._1(), x._2() + y._2());
     }
 
-    private Tuple2<Integer, Double> getAvg(Tuple2<Integer, Tuple2<Double, Integer>> x) {
+    private Tuple2<Tuple2<String, Integer>, Double> getAvg(Tuple2<Tuple2<String, Integer>, Tuple2<Double, Integer>> x) {
         return new Tuple2<>(x._1(), x._2()._1() / x._2()._2());
     }
 
@@ -110,6 +110,14 @@ public class FirstQuery implements Query {
 
     private double getCID(String[] fields) {
         return Double.parseDouble(fields[CsvFields.CARBON_INTENSITY_DIRECT]);
+    }
+
+    private Tuple2<String, Integer> getKey(String[] fields) {
+        return new Tuple2<>(getCountry(fields), getYear(fields));
+    }
+
+    private String getCountry(String[] fields) {
+        return fields[CsvFields.COUNTRY];
     }
 
     private Integer getYear(String[] fields) {
