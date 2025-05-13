@@ -2,6 +2,7 @@ package io.github.francescodonnini;
 
 import io.github.francescodonnini.query.FirstQuery;
 import io.github.francescodonnini.query.SecondQuery;
+import io.github.francescodonnini.query.ThirdQuery;
 
 import java.util.Optional;
 import java.util.logging.Level;
@@ -25,6 +26,8 @@ public class QueryDispatcher {
             executeFirstQuery(conf);
         } else if (queryNumber == 2) {
             executeSecondQuery(conf);
+        } else if (queryNumber == 3) {
+            executeThirdQuery(conf);
         } else {
             logger.log(Level.SEVERE, () -> "unexpected query number " + queryNumber);
             System.exit(1);
@@ -41,6 +44,13 @@ public class QueryDispatcher {
     private static void executeSecondQuery(Conf conf) {
         var spark = SparkFactory.getSparkSession(conf);
         try (var query = new SecondQuery(spark, getDatasetPath(conf), getResultsPath(conf, "secondQuery"))) {
+            query.submit();
+        }
+    }
+
+    private static void executeThirdQuery(Conf conf) {
+        var spark = SparkFactory.getSparkSession(conf);
+        try (var query = new ThirdQuery(spark, getDatasetPath(conf), getResultsPath(conf, "thirdQuery"))) {
             query.submit();
         }
     }
