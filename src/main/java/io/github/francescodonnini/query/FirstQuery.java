@@ -12,6 +12,7 @@ public class FirstQuery implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvFields.DATETIME_FORMAT);
 
     public FirstQuery(SparkSession spark, String datasetPath, String resultsPath) {
         this.spark = spark;
@@ -31,7 +32,6 @@ public class FirstQuery implements Query {
      * valor medio di “Carbon intensity gCO2eq/kWh (direct)” e “Carbon-free energy percentage (CFE%)”
      * aggregati su base annua, generare due grafici che consentano di confrontare visivamente l’andamento
      * per Italia e Svezia.
-     *
      * csv format
      * Datetime (UTC),Country,Zone name,Zone id,Carbon intensity gCO₂eq/kWh (direct),Carbon intensity gCO₂eq/kWh (Life cycle),Carbon-free energy percentage (CFE%),Renewable energy percentage (RE%),Data source,Data estimated,Data estimation method
      * 2021-01-01 00:00:00,Sweden,Sweden,SE,2.54,30.02,99.42,60.13,svk.se,true,ESTIMATED_FORECASTS_HIERARCHY
@@ -39,69 +39,43 @@ public class FirstQuery implements Query {
      */
     @Override
     public void submit() {
-        var lines = spark.sparkContext()
+        var rdd = spark.sparkContext()
                 .textFile(datasetPath, 1)
                 .toJavaRDD();
-        var carbonIntensity = lines.mapToPair(this::getCIDPair);
-        var avgCarbonIntensity = calculateAvg(carbonIntensity);
-        var maxCarbonIntensity = calculateMax(carbonIntensity);
-        var minCarbonIntensity = calculateMin(carbonIntensity);
-        var cfe = lines.mapToPair(this::getCFEPair);
-        var avgCfe = calculateAvg(cfe);
-        var maxCfe = calculateMax(cfe);
-        var minCfe = calculateMin(cfe);
-        saveResult(avgCarbonIntensity, minCarbonIntensity, maxCarbonIntensity, avgCfe, minCfe, maxCfe);
+        var averages = rdd.mapToPair(this::getPairsWithOccurrences)
+                        .reduceByKey(QueryUtils::sumDoubleIntPair)
+                        .mapToPair(QueryUtils::average);
+        var pairs = rdd.mapToPair(this::getPairs);
+        var max = pairs.reduceByKey(this::getMax);
+        var min = pairs.reduceByKey(this::getMin);
+        saveResult(averages, min, max);
     }
 
     private void saveResult(
-            JavaPairRDD<Tuple2<String, Integer>, Double> avgCI,
-            JavaPairRDD<Tuple2<String, Integer>, Double> minCI,
-            JavaPairRDD<Tuple2<String, Integer>, Double> maxCI,
-            JavaPairRDD<Tuple2<String, Integer>, Double> avgCfe,
-            JavaPairRDD<Tuple2<String, Integer>, Double> minCfe,
-            JavaPairRDD<Tuple2<String, Integer>, Double> maxCfe) {
-        avgCI.union(maxCI)
-            .union(minCI)
-            .union(avgCfe)
-            .union(minCfe)
-            .union(maxCfe)
-            .saveAsTextFile(resultsPath);
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
+        averages.join(min)
+                .join(max)
+                .saveAsTextFile(resultsPath);
     }
 
-    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateAvg(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
-        return rdd.mapToPair(this::addOccurrence)
-                .reduceByKey(this::sum2D)
-                .mapToPair(this::getAvg);
-    }
-
-    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateMax(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
-        return rdd.reduceByKey(Math::max);
-    }
-
-    private JavaPairRDD<Tuple2<String, Integer>, Double> calculateMin(JavaPairRDD<Tuple2<String, Integer>, Double> rdd) {
-        return rdd.reduceByKey(Math::min);
-    }
-
-    private Tuple2<Tuple2<String, Integer>, Double> getCIDPair(String line) {
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
         var fields = line.split(",");
-        return new Tuple2<>(getKey(fields), getCID(fields));
+        return new Tuple2<>(getKey(fields), new Tuple2<>(getCID(fields), getCFE(fields)));
     }
 
-    private Tuple2<Tuple2<String, Integer>, Double> getCFEPair(String line) {
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOccurrences(String line) {
         var fields = line.split(",");
-        return new Tuple2<>(getKey(fields), getCFE(fields));
+        return new Tuple2<>(getKey(fields), new Tuple2<>(new Tuple2<>(getCID(fields), 1), new Tuple2<>(getCFE(fields), 1)));
     }
 
-    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Integer>> addOccurrence(Tuple2<Tuple2<String, Integer>, Double> pair) {
-        return new Tuple2<>(pair._1(), new Tuple2<>(pair._2(), 1));
+    private Tuple2<Double, Double> getMax(Tuple2<Double, Double> x, Tuple2<Double, Double> y) {
+        return new Tuple2<>(Math.max(x._1(), y._1()), Math.max(x._2(), y._2()));
     }
 
-    private Tuple2<Double, Integer> sum2D(Tuple2<Double, Integer> x, Tuple2<Double, Integer> y) {
-        return new Tuple2<>(x._1() + y._1(), x._2() + y._2());
-    }
-
-    private Tuple2<Tuple2<String, Integer>, Double> getAvg(Tuple2<Tuple2<String, Integer>, Tuple2<Double, Integer>> x) {
-        return new Tuple2<>(x._1(), x._2()._1() / x._2()._2());
+    private Tuple2<Double, Double> getMin(Tuple2<Double, Double> x, Tuple2<Double, Double> y) {
+        return new Tuple2<>(Math.min(x._1(), y._1()), Math.min(x._2(), y._2()));
     }
 
     private double getCFE(String[] fields) {
@@ -121,6 +95,6 @@ public class FirstQuery implements Query {
     }
 
     private Integer getYear(String[] fields) {
-        return LocalDateTime.parse(fields[CsvFields.DATETIME_UTC], DateTimeFormatter.ofPattern(CsvFields.DATETIME_FORMAT)).getYear();
+        return LocalDateTime.parse(fields[CsvFields.DATETIME_UTC], formatter).getYear();
     }
 }
