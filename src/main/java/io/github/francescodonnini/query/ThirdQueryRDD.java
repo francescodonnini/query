@@ -1,6 +1,6 @@
 package io.github.francescodonnini.query;
 
-import io.github.francescodonnini.dataset.CsvFields;
+import io.github.francescodonnini.dataset.CsvField;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -10,13 +10,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ThirdQuery implements Query {
+public class ThirdQueryRDD implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvFields.DATETIME_FORMAT);
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.getDateTimeFormat());
 
-    public ThirdQuery(SparkSession spark, String datasetPath, String resultsPath) {
+    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
@@ -45,12 +45,18 @@ public class ThirdQuery implements Query {
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles)
+                .map(this::stringify)
                 .saveAsTextFile(resultsPath + "/cfe" );
         lines.mapToPair(this::getCi)
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles)
+                .map(this::stringify)
                 .saveAsTextFile(resultsPath + "/ci");
+    }
+
+    private Object stringify(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
+        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1() + "," + x._2()._2() + "," + x._2()._3();
     }
 
     private Tuple3<Double, Double, Double> getQuantiles(List<Double> list) {
@@ -76,15 +82,15 @@ public class ThirdQuery implements Query {
     }
 
     private Tuple2<String, Integer> getKey(String[] fields) {
-        return new Tuple2<>(getCountryCode(fields), getHourOfDay(fields));
+        return new Tuple2<>(getCountry(fields), getHourOfDay(fields));
     }
 
     private double getCfe(String[] fields) {
-        return Double.parseDouble(fields[CsvFields.CFE_PERCENTAGE]);
+        return Double.parseDouble(fields[CsvField.CFE_PERCENTAGE.getIndex()]);
     }
 
     private double getCi(String[] fields) {
-        return Double.parseDouble(fields[CsvFields.CARBON_INTENSITY_DIRECT]);
+        return Double.parseDouble(fields[CsvField.CARBON_INTENSITY_DIRECT.getIndex()]);
     }
 
     private int getHourOfDay(String[] fields) {
@@ -92,11 +98,11 @@ public class ThirdQuery implements Query {
     }
 
     private String getDatetime(String[] fields) {
-        return fields[CsvFields.DATETIME_UTC];
+        return fields[CsvField.DATETIME_UTC.getIndex()];
     }
 
-    private String getCountryCode(String[] fields) {
-        return fields[CsvFields.ZONE_ID];
+    private String getCountry(String[] fields) {
+        return fields[CsvField.COUNTRY.getIndex()];
     }
 
     private String[] getFields(String line) {

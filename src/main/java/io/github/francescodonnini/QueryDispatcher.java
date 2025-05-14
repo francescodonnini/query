@@ -1,57 +1,97 @@
 package io.github.francescodonnini;
 
-import io.github.francescodonnini.query.FirstQuery;
-import io.github.francescodonnini.query.SecondQuery;
-import io.github.francescodonnini.query.ThirdQuery;
+import io.github.francescodonnini.query.*;
 
 import java.util.Optional;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class QueryDispatcher {
+    public static class QueryArgs {
+        public enum QueryKind {
+            Q1, Q2, Q3;
+
+            public static QueryKind fromInt(int i) {
+                switch (i) {
+                    case 1: return Q1;
+                    case 2: return Q2;
+                    case 3: return Q3;
+                    default: throw new IllegalArgumentException("invalid query number: expected 1, 2 or 3 but got " + i);
+                }
+            }
+        }
+        private final QueryKind queryKind;
+        private final boolean useRDD;
+
+        public QueryArgs(int queryNumber, boolean useRDD) {
+            this.queryKind = QueryKind.fromInt(queryNumber);
+            this.useRDD = useRDD;
+        }
+
+        public QueryKind getQueryKind() {
+            return queryKind;
+        }
+
+        public boolean useRDD() {
+            return useRDD;
+        }
+    }
+
     private static final Logger logger = Logger.getLogger(QueryDispatcher.class.getName());
+
     public static void main(String[] args) {
-        var optionalQueryNumber = tryParseQueryNumber(args);
-        if (optionalQueryNumber.isEmpty()) {
+        var oArgs = tryParseQueryArgs(args);
+        if (oArgs.isEmpty()) {
             System.exit(1);
         }
-        int queryNumber = optionalQueryNumber.get();
-        var o = ConfFactory.getConf("FirstQuery");
+        var queryArgs = oArgs.get();
+        var o = ConfFactory.getConf(getAppName(queryArgs));
         if (o.isEmpty()) {
             logger.log(Level.SEVERE, "some configuration parameters are missing");
             System.exit(1);
         }
-        var conf = o.get();
-        if (queryNumber == 1) {
-            executeFirstQuery(conf);
-        } else if (queryNumber == 2) {
-            executeSecondQuery(conf);
-        } else if (queryNumber == 3) {
-            executeThirdQuery(conf);
-        } else {
-            logger.log(Level.SEVERE, () -> "unexpected query number " + queryNumber);
+        executeQuery(o.get(), queryArgs);
+    }
+
+    private static String getAppName(QueryArgs queryArgs) {
+        return "query-" +
+                queryArgs.getQueryKind() +
+                "-" +
+                (queryArgs.useRDD() ? "rdd" : "df") +
+                "-" +
+                System.currentTimeMillis();
+    }
+
+    private static void executeQuery(Conf conf, QueryArgs args) {
+        try (var query = createQuery(conf, args)) {
+            query.submit();
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "failed to execute query", e);
             System.exit(1);
         }
     }
 
-    private static void executeFirstQuery(Conf conf) {
-        var spark = SparkFactory.getSparkSession(conf);
-        try (var query = new FirstQuery(spark, getDatasetPath(conf), getResultsPath(conf, "firstQuery"))) {
-            query.submit();
-        }
-    }
-
-    private static void executeSecondQuery(Conf conf) {
-        var spark = SparkFactory.getSparkSession(conf);
-        try (var query = new SecondQuery(spark, getDatasetPath(conf), getResultsPath(conf, "secondQuery"))) {
-            query.submit();
-        }
-    }
-
-    private static void executeThirdQuery(Conf conf) {
-        var spark = SparkFactory.getSparkSession(conf);
-        try (var query = new ThirdQuery(spark, getDatasetPath(conf), getResultsPath(conf, "thirdQuery"))) {
-            query.submit();
+    private static Query createQuery(Conf conf, QueryArgs args) {
+        var datasetPath = getDatasetPath(conf);
+        var resultsPath = getResultsPath(conf);
+        switch (args.getQueryKind()) {
+            case Q1:
+                if (args.useRDD()) {
+                    return new FirstQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                }
+                return new FirstQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+            case Q2:
+                if (args.useRDD()) {
+                    return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                }
+                return new SecondQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+            case Q3:
+                if (args.useRDD()) {
+                    return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                }
+                return new ThirdQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+            default:
+                throw new IllegalArgumentException("invalid query " + args.getQueryKind());
         }
     }
 
@@ -59,20 +99,43 @@ public class QueryDispatcher {
         return HdfsUtils.createPath(conf, conf.getFilePath());
     }
 
-    private static String getResultsPath(Conf conf, String query) {
-        return HdfsUtils.createPath(conf, "user", "spark", query);
+    private static String getResultsPath(Conf conf) {
+        return HdfsUtils.createPath(conf, "user", "spark", conf.getSparkAppName());
     }
 
-    private static Optional<Integer> tryParseQueryNumber(String[] args) {
-        if (args.length != 1) {
-            logger.log(Level.SEVERE, "expected at least one argument");
+    private static Optional<QueryArgs> tryParseQueryArgs(String[] args) {
+        if (args.length != 2) {
+            logger.log(Level.SEVERE, "usage: <query number> <use RDD>");
             return Optional.empty();
         }
         try {
-            return Optional.of(Integer.parseInt(args[0]));
+            var queryNumber = parseQueryNumber(args[0]);
+            var useRDD = useRDD(args[1]);
+            return Optional.of(new QueryArgs(queryNumber, useRDD) );
         } catch (NumberFormatException e) {
-            logger.log(Level.SEVERE, "failed to parse query number", e);
-            return Optional.empty();
+            logger.log(Level.SEVERE, "failed to parse <query number>", e);
+        } catch (IllegalArgumentException e) {
+            logger.log(Level.SEVERE, e.getMessage(), e);
+        }
+        return Optional.empty();
+    }
+
+    private static int parseQueryNumber(String arg) {
+        var queryNumber = Integer.parseInt(arg);
+        if (queryNumber < 1 || queryNumber > 3) {
+            throw new IllegalArgumentException("failed to parse <query number>: expected a number between 1 and 3 but got " + arg);
+        }
+        return queryNumber;
+    }
+
+    private static boolean useRDD(String arg) {
+        switch (arg) {
+            case "D":
+                return false;
+            case "R":
+                return true;
+            default:
+                throw new IllegalArgumentException("failed to parse <use RDD>: expected one of \"D\" or \"R\" but got " + arg);
         }
     }
 }

@@ -1,6 +1,6 @@
 package io.github.francescodonnini.query;
 
-import io.github.francescodonnini.dataset.CsvFields;
+import io.github.francescodonnini.dataset.CsvField;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
@@ -8,13 +8,14 @@ import scala.Tuple2;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public class FirstQuery implements Query {
+public class FirstQueryRDD implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvFields.DATETIME_FORMAT);
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.getDateTimeFormat());
 
-    public FirstQuery(SparkSession spark, String datasetPath, String resultsPath) {
+
+    public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
@@ -57,7 +58,13 @@ public class FirstQuery implements Query {
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
         averages.join(min)
                 .join(max)
+                .map(this::stringify)
                 .saveAsTextFile(resultsPath);
+    }
+
+    private String stringify(
+            Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
+        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2();
     }
 
     private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
@@ -79,11 +86,11 @@ public class FirstQuery implements Query {
     }
 
     private double getCFE(String[] fields) {
-        return Double.parseDouble(fields[CsvFields.CFE_PERCENTAGE]);
+        return Double.parseDouble(fields[CsvField.CFE_PERCENTAGE.getIndex()]);
     }
 
     private double getCID(String[] fields) {
-        return Double.parseDouble(fields[CsvFields.CARBON_INTENSITY_DIRECT]);
+        return Double.parseDouble(fields[CsvField.CARBON_INTENSITY_DIRECT.getIndex()]);
     }
 
     private Tuple2<String, Integer> getKey(String[] fields) {
@@ -91,10 +98,10 @@ public class FirstQuery implements Query {
     }
 
     private String getCountry(String[] fields) {
-        return fields[CsvFields.COUNTRY];
+        return fields[CsvField.COUNTRY.getIndex()];
     }
 
     private Integer getYear(String[] fields) {
-        return LocalDateTime.parse(fields[CsvFields.DATETIME_UTC], formatter).getYear();
+        return LocalDateTime.parse(fields[CsvField.DATETIME_UTC.getIndex()], formatter).getYear();
     }
 }
