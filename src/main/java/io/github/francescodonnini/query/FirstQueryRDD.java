@@ -64,7 +64,7 @@ public class FirstQueryRDD implements Query {
 
     private String stringify(
             Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
-        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2();
+        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2() + "\n";
     }
 
     private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
