@@ -52,29 +52,14 @@ public class FirstQueryRDD implements Query {
         saveResult(averages, min, max);
     }
 
-    private void saveResult(
-            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages,
-            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min,
-            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
-        averages.join(min)
-                .join(max)
-                .map(this::stringify)
-                .saveAsTextFile(resultsPath);
-    }
-
-    private String stringify(
-            Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
-        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2() + "\n";
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOccurrences(String line) {
+        var fields = line.split(",");
+        return new Tuple2<>(getKey(fields), new Tuple2<>(new Tuple2<>(getCID(fields), 1), new Tuple2<>(getCFE(fields), 1)));
     }
 
     private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
         var fields = line.split(",");
         return new Tuple2<>(getKey(fields), new Tuple2<>(getCID(fields), getCFE(fields)));
-    }
-
-    private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOccurrences(String line) {
-        var fields = line.split(",");
-        return new Tuple2<>(getKey(fields), new Tuple2<>(new Tuple2<>(getCID(fields), 1), new Tuple2<>(getCFE(fields), 1)));
     }
 
     private Tuple2<Double, Double> getMax(Tuple2<Double, Double> x, Tuple2<Double, Double> y) {
@@ -103,5 +88,20 @@ public class FirstQueryRDD implements Query {
 
     private Integer getYear(String[] fields) {
         return LocalDateTime.parse(fields[CsvField.DATETIME_UTC.getIndex()], formatter).getYear();
+    }
+
+    private void saveResult(
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
+        averages.join(min)
+                .join(max)
+                .map(this::toCsv)
+                .saveAsTextFile(resultsPath);
+    }
+
+    private String toCsv(
+            Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
+        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2() + "\n";
     }
 }
