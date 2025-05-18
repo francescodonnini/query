@@ -1,5 +1,7 @@
 package io.github.francescodonnini;
 
+import io.github.francescodonnini.conf.Conf;
+import io.github.francescodonnini.conf.ConfFactory;
 import io.github.francescodonnini.query.*;
 
 import java.util.Optional;
@@ -84,7 +86,14 @@ public class QueryDispatcher {
                 if (args.useRDD()) {
                     return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
                 }
-                return new SecondQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                return new SecondQueryDF(SparkFactory.getSparkSession(conf),
+                                         datasetPath,
+                                         getInfluxDbUrl(conf),
+                                         conf.getString("INFLUXDB_USER"),
+                                         conf.getString("INFLUXDB_PASSWORD"),
+                                         conf.getString("INFLUXDB_ORG"),
+                                         conf.getString("INFLUXDB_BUCKET"),
+                                         resultsPath);
             case Q3:
                 if (args.useRDD()) {
                     return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
@@ -95,12 +104,16 @@ public class QueryDispatcher {
         }
     }
 
+    private static String getInfluxDbUrl(Conf conf) {
+        return String.format("http://%s:%d", conf.getString("INFLUXDB_HOST"), conf.getInt("INFLUXDB_PORT"));
+    }
+
     private static String getDatasetPath(Conf conf) {
-        return HdfsUtils.createPath(conf, conf.getFilePath());
+        return HdfsUtils.createPath(conf, conf.getString("HDFS_PATH"));
     }
 
     private static String getResultsPath(Conf conf) {
-        return HdfsUtils.createPath(conf, "user", "spark", conf.getSparkAppName());
+        return HdfsUtils.createPath(conf, "user", "spark", conf.getString("SPARK_APP_NAME"));
     }
 
     private static Optional<QueryArgs> tryParseQueryArgs(String[] args) {
