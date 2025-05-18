@@ -24,39 +24,42 @@ public class SecondQueryDF implements Query {
 
     @Override
     public void submit() {
-        var averages = spark.read().parquet(datasetPath)
-                .withColumn("yearMonth", getYearMonth(CsvField.DATETIME_UTC.getName()))
+        final var yearMonthCol = "yearMonth";
+        final var avgCarbonIntensityCol = "avgCi";
+        final var avgCfePercentageCol = "avgCfe";
+        var averages = spark.read().parquet(datasetPath + ".parquet")
+                .withColumn(yearMonthCol, getYearMonth(CsvField.DATETIME_UTC.getName()))
                 .select(
-                        col("yearMonth"),
+                        col(yearMonthCol),
                         col(CsvField.COUNTRY.getName()),
                         col(CsvField.CARBON_INTENSITY_DIRECT.getName()),
                         col(CsvField.CFE_PERCENTAGE.getName()))
                 .where(col(CsvField.COUNTRY.getName()).equalTo("Italy"))
-                .groupBy(col("yearMonth"))
-                .agg(avg(CsvField.CARBON_INTENSITY_DIRECT.getName()).as("avgCi"),
-                        avg(CsvField.CFE_PERCENTAGE.getName()).as("avgCfe"))
-                .orderBy(col("yearMonth"));
+                .groupBy(col(yearMonthCol))
+                .agg(avg(CsvField.CARBON_INTENSITY_DIRECT.getName()).as(avgCarbonIntensityCol),
+                     avg(CsvField.CFE_PERCENTAGE.getName()).as(avgCfePercentageCol))
+                .orderBy(col(yearMonthCol));
         var ciDesc = averages
-                .orderBy(col("avgCi").desc())
+                .orderBy(col(avgCarbonIntensityCol).desc())
                 .limit(5);
         var ciAsc = averages
-                .orderBy(col("avgCi").asc())
+                .orderBy(col(avgCarbonIntensityCol).asc())
                 .limit(5);
         var cfeDesc = averages
-                .orderBy(col("avgCfe").desc())
+                .orderBy(col(avgCfePercentageCol).desc())
                 .limit(5);
         var cfeAsc = averages
-                .orderBy(col("avgCfe").asc())
+                .orderBy(col(avgCfePercentageCol).asc())
                 .limit(5);
         averages.write()
                 .option("header", true)
                 .csv(resultsPath + "-plot");
         ciDesc.unionByName(ciAsc)
-                .unionByName(cfeDesc)
-                .unionByName(cfeAsc)
-                .write()
-                .option("header", true)
-                .csv(resultsPath + "-pairs");
+              .unionByName(cfeDesc)
+              .unionByName(cfeAsc)
+              .write()
+              .option("header", true)
+              .csv(resultsPath + "-pairs");
     }
 
     private Column getYearMonth(String colName) {
