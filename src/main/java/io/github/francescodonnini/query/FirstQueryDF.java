@@ -62,25 +62,27 @@ public class FirstQueryDF implements Query {
 
     @Override
     public void submit() {
+        final String carbonIntensityCol = "carbonIntensity";
+        final String cfePercentageCol = "cfePercentage";
         spark.read().parquet(datasetPath)
                 .withColumn("year", year(to_timestamp(col(CsvField.DATETIME_UTC.getName()), CsvField.getDateTimeFormat())))
                 .select(
                         col("year"),
                         col(CsvField.COUNTRY.getName()).as("country"),
-                        col(CsvField.CARBON_INTENSITY_DIRECT.getName()).as("carbonIntensity"),
-                        col(CsvField.CFE_PERCENTAGE.getName()).as("cfePercentage")
+                        col(CsvField.CARBON_INTENSITY_DIRECT.getName()).as(carbonIntensityCol),
+                        col(CsvField.CFE_PERCENTAGE.getName()).as(cfePercentageCol)
                 )
                 .as(Encoders.bean(Bean.class))
                 .groupBy(
                         col("country"),
                         col("year"))
                 .agg(
-                        avg(col("carbonIntensity")),
-                        min(col("carbonIntensity")),
-                        max(col("carbonIntensity")),
-                        avg(col("cfePercentage")),
-                        max(col("cfePercentage")),
-                        min(col("cfePercentage")))
+                        avg(col(carbonIntensityCol)),
+                        min(col(carbonIntensityCol)),
+                        max(col(carbonIntensityCol)),
+                        avg(col(cfePercentageCol)),
+                        max(col(cfePercentageCol)),
+                        min(col(cfePercentageCol)))
                 .write()
                 .csv(resultsPath);
     }
