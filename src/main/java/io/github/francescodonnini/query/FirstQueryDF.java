@@ -64,7 +64,7 @@ public class FirstQueryDF implements Query {
     public void submit() {
         final String carbonIntensityCol = "carbonIntensity";
         final String cfePercentageCol = "cfePercentage";
-        spark.read().parquet(datasetPath)
+        spark.read().parquet(datasetPath + ".parquet")
                 .withColumn("year", year(to_timestamp(col(CsvField.DATETIME_UTC.getName()), CsvField.getDateTimeFormat())))
                 .select(
                         col("year"),
