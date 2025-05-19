@@ -23,6 +23,7 @@ public class ConfFactory {
             setInt(properties, "INFLUXDB_PORT");
             setString(properties, "INFLUXDB_USER");
             setString(properties, "INFLUXDB_PASSWORD");
+            setString(properties, "INFLUXDB_TOKEN");
             setString(properties, "INFLUXDB_ORG");
             setString(properties, "INFLUXDB_BUCKET");
             return Optional.of(new ConfImpl(properties));
