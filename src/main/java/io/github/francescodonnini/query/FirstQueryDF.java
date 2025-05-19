@@ -7,8 +7,6 @@ import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
-import java.time.Year;
-import java.time.ZonedDateTime;
 import java.time.Instant;
 
 import static org.apache.spark.sql.functions.*;
@@ -104,7 +102,7 @@ public class FirstQueryDF implements Query {
     }
 
     private Point from(Row row) {
-        return Point.measurement("q1")
+        return Point.measurement("q1-df")
                 .addTag(COUNTRY_COL_NAME, row.getString(COUNTRY_COL_INDEX))
                 .addField("avgCi", row.getDouble(2))
                 .addField("minCi", row.getDouble(3))
@@ -116,9 +114,6 @@ public class FirstQueryDF implements Query {
     }
 
     private Instant getTime(Row row) {
-        return Year.of(row.getInt(YEAR_COL_INDEX))
-                .atDay(1)
-                .atStartOfDay()
-                .toInstant(ZonedDateTime.now().getOffset());
+        return TimeUtils.fromYear(row.getInt(YEAR_COL_INDEX));
     }
 }

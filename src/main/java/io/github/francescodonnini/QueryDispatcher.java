@@ -76,25 +76,20 @@ public class QueryDispatcher {
     private static Query createQuery(Conf conf, QueryArgs args) {
         var datasetPath = getDatasetPath(conf);
         var resultsPath = getResultsPath(conf);
+        var factory = getInfluxDbFactory(conf);
         switch (args.getQueryKind()) {
             case Q1:
                 if (args.useRDD()) {
-                    return new FirstQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                    return new FirstQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
                 }
-                return new FirstQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                return new FirstQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
             case Q2:
                 if (args.useRDD()) {
-                    return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                    return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
                 }
                 return new SecondQueryDF(SparkFactory.getSparkSession(conf),
                                          datasetPath,
-                                         getInfluxDbUrl(conf),
-                                         conf.getString("INFLUXDB_USER"),
-                                         conf.getString("INFLUXDB_PASSWORD"),
-                                         conf.getString("INFLUXDB_TOKEN"),
-                                         conf.getString("INFLUXDB_ORG"),
-                                         conf.getString("INFLUXDB_BUCKET"),
-                                         resultsPath);
+                                         resultsPath, factory);
             case Q3:
                 if (args.useRDD()) {
                     return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
@@ -105,8 +100,15 @@ public class QueryDispatcher {
         }
     }
 
-    private static String getInfluxDbUrl(Conf conf) {
-        return String.format("http://%s:%d", conf.getString("INFLUXDB_HOST"), conf.getInt("INFLUXDB_PORT"));
+    private static InfluxDbWriterFactory getInfluxDbFactory(Conf conf) {
+        return new InfluxDbWriterFactoryImpl()
+                .setHost(conf.getString("INFLUXDB_HOST"))
+                .setPort(conf.getInt("INFLUXDB_PORT"))
+                .setUsername(conf.getString("INFLUXDB_USER"))
+                .setPassword(conf.getString("INFLUXDB_PASSWORD"))
+                .setToken(conf.getString("INFLUXDB_TOKEN"))
+                .setOrg(conf.getString("INFLUXDB_ORG"))
+                .setBucket(conf.getString("INFLUXDB_BUCKET"));
     }
 
     private static String getDatasetPath(Conf conf) {

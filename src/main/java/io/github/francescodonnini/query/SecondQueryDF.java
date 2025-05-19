@@ -1,7 +1,5 @@
 package io.github.francescodonnini.query;
 
-import com.influxdb.client.InfluxDBClientFactory;
-import com.influxdb.client.InfluxDBClientOptions;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.dataset.CsvField;
@@ -28,31 +26,13 @@ public class SecondQueryDF implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
-    private final String influxUrl;
-    private final String influxUser;
-    private final String influxPassword;
-    private final String influxToken;
-    private final String influxOrg;
-    private final String influxBucket;
+    private final InfluxDbWriterFactory factory;
 
-    public SecondQueryDF(SparkSession spark,
-                         String datasetPath,
-                         String influxUrl,
-                         String influxUser,
-                         String influxPassword,
-                         String influxToken,
-                         String influxOrg,
-                         String influxBucket,
-                         String resultsPath) {
+    public SecondQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
         this.spark = spark;
         this.datasetPath = datasetPath;
-        this.influxUrl = influxUrl;
-        this.influxUser = influxUser;
-        this.influxPassword = influxPassword;
-        this.influxToken = influxToken;
-        this.influxOrg = influxOrg;
-        this.influxBucket = influxBucket;
         this.resultsPath = resultsPath;
+        this.factory = factory;
     }
 
     @Override
@@ -102,18 +82,11 @@ public class SecondQueryDF implements Query {
 
     private void saveToInfluxDB(Dataset<Row> dataset) {
         dataset.foreachPartition(partition -> {
-            var opts = InfluxDBClientOptions.builder()
-                    .url(influxUrl)
-                    .authenticate(influxUser, influxPassword.toCharArray())
-                    .authenticateToken(influxToken.toCharArray())
-                    .org(influxOrg)
-                    .bucket(influxBucket)
-                    .build();
-            try (var client = InfluxDBClientFactory.create(opts);) {
+            try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
                 var points = new ArrayList<Point>();
                 partition.forEachRemaining(row -> {
-                    var point = Point.measurement("carbon-intensity")
+                    var point = Point.measurement("q2-df")
                             .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
                             .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
                             .time(getTime(row), WritePrecision.MS);

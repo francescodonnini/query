@@ -1,5 +1,7 @@
 package io.github.francescodonnini.query;
 
+import com.influxdb.client.domain.WritePrecision;
+import com.influxdb.client.write.Point;
 import io.github.francescodonnini.dataset.CsvField;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.sql.SparkSession;
@@ -12,13 +14,15 @@ public class FirstQueryRDD implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
+    private final InfluxDbWriterFactory factory;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.getDateTimeFormat());
 
 
-    public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath) {
+    public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
+        this.factory = factory;
     }
 
     @Override
@@ -98,10 +102,32 @@ public class FirstQueryRDD implements Query {
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages,
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min,
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
-        averages.join(min)
-                .join(max)
-                .map(this::toCsv)
-                .saveAsTextFile(resultsPath);
+        var result = averages.join(min)
+                .join(max);
+        result.map(this::toCsv).saveAsTextFile(resultsPath);
+        result.foreachPartition(partition -> {
+            try (var client = factory.create()) {
+                var writer = client.getWriteApiBlocking();
+                partition.forEachRemaining(row -> writer.writePoint(from(row)));
+            }
+        });
+    }
+
+    private Point from(Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> row) {
+        var key = row._1();
+        var val = row._2();
+        var avg = val._1()._1();
+        var max = val._1()._2();
+        var min = val._2();
+        return Point.measurement("q1-rdd")
+                .addTag("country", key._1())
+                .addField("avgCi", avg._1())
+                .addField("avgCfe", avg._2())
+                .addField("maxCi", max._1())
+                .addField("maxCfe", max._2())
+                .addField("minCi", min._1())
+                .addField("minCfe", min._2())
+                .time(TimeUtils.fromYear(key._2()), WritePrecision.S);
     }
 
     private String toCsv(
