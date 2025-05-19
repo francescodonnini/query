@@ -31,6 +31,7 @@ public class SecondQueryDF implements Query {
     private final String influxUrl;
     private final String influxUser;
     private final String influxPassword;
+    private final String influxToken;
     private final String influxOrg;
     private final String influxBucket;
 
@@ -39,6 +40,7 @@ public class SecondQueryDF implements Query {
                          String influxUrl,
                          String influxUser,
                          String influxPassword,
+                         String influxToken,
                          String influxOrg,
                          String influxBucket,
                          String resultsPath) {
@@ -47,6 +49,7 @@ public class SecondQueryDF implements Query {
         this.influxUrl = influxUrl;
         this.influxUser = influxUser;
         this.influxPassword = influxPassword;
+        this.influxToken = influxToken;
         this.influxOrg = influxOrg;
         this.influxBucket = influxBucket;
         this.resultsPath = resultsPath;
@@ -82,6 +85,9 @@ public class SecondQueryDF implements Query {
                 .orderBy(col(AVG_CFE_PERCENTAGE_COL_NAME).asc())
                 .limit(5);
         saveToInfluxDB(averages);
+        averages.write()
+                .option("header", true)
+                .csv(resultsPath + "-plots");
         ciDesc.unionByName(ciAsc)
               .unionByName(cfeDesc)
               .unionByName(cfeAsc)
@@ -99,6 +105,7 @@ public class SecondQueryDF implements Query {
             var opts = InfluxDBClientOptions.builder()
                     .url(influxUrl)
                     .authenticate(influxUser, influxPassword.toCharArray())
+                    .authenticateToken(influxToken.toCharArray())
                     .org(influxOrg)
                     .bucket(influxBucket)
                     .build();
