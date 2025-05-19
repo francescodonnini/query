@@ -91,6 +91,7 @@ public class QueryDispatcher {
                                          getInfluxDbUrl(conf),
                                          conf.getString("INFLUXDB_USER"),
                                          conf.getString("INFLUXDB_PASSWORD"),
+                                         conf.getString("INFLUXDB_TOKEN"),
                                          conf.getString("INFLUXDB_ORG"),
                                          conf.getString("INFLUXDB_BUCKET"),
                                          resultsPath);
