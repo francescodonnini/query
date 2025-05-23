@@ -2,7 +2,7 @@ package io.github.francescodonnini.query;
 
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
-import io.github.francescodonnini.dataset.CsvField;
+import io.github.francescodonnini.dataset.ParquetField;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -43,14 +43,14 @@ public class SecondQueryDF implements Query {
     @Override
     public void submit() {
         var averages = spark.read().parquet(datasetPath + ".parquet")
-                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(CsvField.DATETIME_UTC.getName()))
+                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
                 .select(col(YEAR_MONTH_COL_NAME),
-                        col(CsvField.CARBON_INTENSITY_DIRECT.getName()),
-                        col(CsvField.CFE_PERCENTAGE.getName()))
-                .where(col(CsvField.COUNTRY.getName()).equalTo("Italy"))
+                        col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
+                        col(ParquetField.CFE_PERCENTAGE.getName()))
+                .where(col(ParquetField.COUNTRY.getName()).equalTo("Italy"))
                 .groupBy(col(YEAR_MONTH_COL_NAME))
-                .agg(avg(CsvField.CARBON_INTENSITY_DIRECT.getName()).as(AVG_CARBON_INTENSITY_COL_NAME),
-                     avg(CsvField.CFE_PERCENTAGE.getName()).as(AVG_CFE_PERCENTAGE_COL_NAME))
+                .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(AVG_CARBON_INTENSITY_COL_NAME),
+                     avg(ParquetField.CFE_PERCENTAGE.getName()).as(AVG_CFE_PERCENTAGE_COL_NAME))
                 .orderBy(col(YEAR_MONTH_COL_NAME));
         var ciDesc = averages
                 .orderBy(col(AVG_CARBON_INTENSITY_COL_NAME).desc())
@@ -77,7 +77,7 @@ public class SecondQueryDF implements Query {
     }
 
     private Column getYearMonth(String colName) {
-        return date_format(to_timestamp(col(colName), CsvField.getDateTimeFormat()), "yyyy-MM");
+        return date_format(to_timestamp(col(colName), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
     private void saveToInfluxDB(Dataset<Row> dataset) {

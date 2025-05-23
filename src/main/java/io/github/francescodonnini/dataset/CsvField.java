@@ -15,6 +15,8 @@ public enum CsvField implements Serializable {
     DATA_ESTIMATED(9, "Data estimated"),
     DATA_ESTIMATION_METHOD(10, "Data estimation method");
 
+    public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
+
     private final int index;
     private final String header;
 
@@ -29,9 +31,5 @@ public enum CsvField implements Serializable {
 
     public String getName() {
         return header;
-    }
-
-    public static String getDateTimeFormat() {
-        return "yyyy-MM-dd HH:mm:ss";
     }
 }

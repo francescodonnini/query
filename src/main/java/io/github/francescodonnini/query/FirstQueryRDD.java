@@ -15,7 +15,7 @@ public class FirstQueryRDD implements Query {
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.getDateTimeFormat());
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
 
 
     public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {

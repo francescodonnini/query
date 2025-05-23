@@ -2,7 +2,7 @@ package io.github.francescodonnini.query;
 
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
-import io.github.francescodonnini.dataset.CsvField;
+import io.github.francescodonnini.dataset.ParquetField;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -76,11 +76,11 @@ public class FirstQueryDF implements Query {
         final String carbonIntensityCol = "carbonIntensity";
         final String cfePercentageCol = "cfePercentage";
         var df = spark.read().parquet(datasetPath + ".parquet")
-             .withColumn(YEAR_COL_NAME, year(to_timestamp(col(CsvField.DATETIME_UTC.getName()), CsvField.getDateTimeFormat())))
+             .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)))
              .select(col(YEAR_COL_NAME),
-                     col(CsvField.COUNTRY.getName()).as(COUNTRY_COL_NAME),
-                     col(CsvField.CARBON_INTENSITY_DIRECT.getName()).as(carbonIntensityCol),
-                     col(CsvField.CFE_PERCENTAGE.getName()).as(cfePercentageCol))
+                     col(ParquetField.COUNTRY.getName()).as(COUNTRY_COL_NAME),
+                     col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(carbonIntensityCol),
+                     col(ParquetField.CFE_PERCENTAGE.getName()).as(cfePercentageCol))
              .as(Encoders.bean(Bean.class))
              .groupBy(col(COUNTRY_COL_NAME),
                       col(YEAR_COL_NAME))
