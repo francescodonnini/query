@@ -3,6 +3,12 @@ package io.github.francescodonnini;
 import io.github.francescodonnini.conf.Conf;
 import io.github.francescodonnini.conf.ConfFactory;
 import io.github.francescodonnini.query.*;
+import io.github.francescodonnini.query.q1.FirstQueryDF;
+import io.github.francescodonnini.query.q1.FirstQueryRDD;
+import io.github.francescodonnini.query.q2.SecondQueryDF;
+import io.github.francescodonnini.query.q2.SecondQueryRDD;
+import io.github.francescodonnini.query.q3.ThirdQueryDF;
+import io.github.francescodonnini.query.q3.ThirdQueryRDD;
 
 import java.util.Optional;
 import java.util.logging.Level;

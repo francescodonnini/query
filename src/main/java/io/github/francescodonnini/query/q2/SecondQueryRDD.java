@@ -1,60 +1,26 @@
-package io.github.francescodonnini.query;
+package io.github.francescodonnini.query.q2;
 
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
-import io.github.francescodonnini.dataset.CsvField;
+import io.github.francescodonnini.data.CsvField;
+import io.github.francescodonnini.query.InfluxDbWriterFactory;
+import io.github.francescodonnini.query.Query;
+import io.github.francescodonnini.query.Operators;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 
-import java.io.Serializable;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 public class SecondQueryRDD implements Query {
-    private static class IntPairComparator implements Comparator<Tuple2<Integer, Integer>>, Serializable {
-        @Override
-        public int compare(Tuple2<Integer, Integer> o1, Tuple2<Integer, Integer> o2) {
-            var cmp = Integer.compare(o1._1(), o2._1());
-            if (cmp == 0) {
-                return Integer.compare(o1._2(), o2._2());
-            }
-            return cmp;
-        }
-    }
-    private static class CarbonIntensityComparator implements Comparator<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>, Serializable {
-        private final boolean asc;
-
-        public CarbonIntensityComparator(boolean asc) {
-            this.asc = asc;
-        }
-
-        @Override
-        public int compare(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> o1, Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> o2) {
-            return (asc ? 1 : -1) * Double.compare(o1._2()._1(), o2._2()._1());
-        }
-    }
-    private static class CfePercentageComparator implements Comparator<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>, Serializable {
-        private final boolean asc;
-
-        public CfePercentageComparator(boolean asc) {
-            this.asc = asc;
-        }
-
-        @Override
-        public int compare(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> o1, Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> o2) {
-            return (asc ? 1 : -1) * Double.compare(o1._2()._2(), o2._2()._2());
-        }
-    }
-
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
     private final String datasetPath;
@@ -82,8 +48,8 @@ public class SecondQueryRDD implements Query {
                 .filter(this::italianZone)
                 .javaRDD()
                 .mapToPair(this::toPair)
-                .reduceByKey(QueryUtils::sumDoubleIntPair)
-                .mapToPair(QueryUtils::average)
+                .reduceByKey(Operators::sumDoubleIntPair)
+                .mapToPair(Operators::average)
                 .sortByKey(new IntPairComparator());
         save(averages);
         var tops = new ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>();

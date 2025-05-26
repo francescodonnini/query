@@ -1,8 +1,12 @@
-package io.github.francescodonnini.query;
+package io.github.francescodonnini.query.q1;
 
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
-import io.github.francescodonnini.dataset.CsvField;
+import io.github.francescodonnini.data.CsvField;
+import io.github.francescodonnini.query.InfluxDbWriterFactory;
+import io.github.francescodonnini.query.Query;
+import io.github.francescodonnini.query.Operators;
+import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
@@ -48,8 +52,8 @@ public class FirstQueryRDD implements Query {
                 .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
         var averages = rdd.mapToPair(this::getPairsWithOccurrences)
-                        .reduceByKey(QueryUtils::sumDoubleIntPair)
-                        .mapToPair(QueryUtils::average);
+                        .reduceByKey(Operators::sumDoubleIntPair)
+                        .mapToPair(Operators::average);
         var pairs = rdd.mapToPair(this::getPairs);
         var max = pairs.reduceByKey(this::getMax);
         var min = pairs.reduceByKey(this::getMin);

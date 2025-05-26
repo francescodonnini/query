@@ -1,4 +1,4 @@
-package io.github.francescodonnini.dataset;
+package io.github.francescodonnini.data;
 
 import java.io.Serializable;
 

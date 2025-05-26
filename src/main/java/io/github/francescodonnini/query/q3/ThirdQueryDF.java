@@ -1,15 +1,12 @@
-package io.github.francescodonnini.query;
+package io.github.francescodonnini.query.q3;
 
-import io.github.francescodonnini.dataset.CsvField;
+import io.github.francescodonnini.query.Query;
 import org.apache.spark.sql.SparkSession;
-
-import java.time.format.DateTimeFormatter;
 
 public class ThirdQueryDF implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.getDateTimeFormat());
 
     public ThirdQueryDF(SparkSession spark, String datasetPath, String resultsPath) {
         this.spark = spark;

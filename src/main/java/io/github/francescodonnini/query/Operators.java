@@ -2,8 +2,8 @@ package io.github.francescodonnini.query;
 
 import scala.Tuple2;
 
-public class QueryUtils {
-    private QueryUtils() {}
+public class Operators {
+    private Operators() {}
 
     public static Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>> sumDoubleIntPair(
             Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>> x,

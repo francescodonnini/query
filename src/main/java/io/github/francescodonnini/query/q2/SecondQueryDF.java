@@ -1,8 +1,10 @@
-package io.github.francescodonnini.query;
+package io.github.francescodonnini.query.q2;
 
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
-import io.github.francescodonnini.dataset.ParquetField;
+import io.github.francescodonnini.data.ParquetField;
+import io.github.francescodonnini.query.InfluxDbWriterFactory;
+import io.github.francescodonnini.query.Query;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
