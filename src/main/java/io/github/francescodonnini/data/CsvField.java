@@ -4,16 +4,9 @@ import java.io.Serializable;
 
 public enum CsvField implements Serializable {
     DATETIME_UTC(0, "Datetime (UTC)"),
-    COUNTRY(1, "Country"),
-    ZONE_NAME(2, "Zone name"),
-    ZONE_ID(3, "Zone id"),
-    CARBON_INTENSITY_DIRECT(4, "Carbon intensity gCO₂eq/kWh (direct)"),
-    CARBON_INTENSITY_LIFE_CYCLE(5, "Carbon intensity gCO₂eq/kWh (Life cycle)"),
-    CFE_PERCENTAGE(6, "Carbon-free energy percentage (CFE%)"),
-    RE_PERCENTAGE(7, "Renewable energy percentage (RE%)"),
-    DATA_SOURCE(8, "Data source"),
-    DATA_ESTIMATED(9, "Data estimated"),
-    DATA_ESTIMATION_METHOD(10, "Data estimation method");
+    ZONE_ID(1, "Zone id"),
+    CARBON_INTENSITY_DIRECT(2, "Carbon intensity gCO₂eq/kWh (direct)"),
+    CFE_PERCENTAGE(3, "Carbon-free energy percentage (CFE%)");
 
     public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 

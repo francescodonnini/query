@@ -103,7 +103,7 @@ public class ThirdQueryRDD implements Query {
     }
 
     private String getCountry(String[] fields) {
-        return fields[CsvField.COUNTRY.getIndex()];
+        return fields[CsvField.ZONE_ID.getIndex()];
     }
 
     private String[] getFields(String line) {

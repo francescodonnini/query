@@ -49,7 +49,7 @@ public class SecondQueryDF implements Query {
                 .select(col(YEAR_MONTH_COL_NAME),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
                         col(ParquetField.CFE_PERCENTAGE.getName()))
-                .where(col(ParquetField.COUNTRY.getName()).equalTo("Italy"))
+                .where(col(ParquetField.ZONE_ID.getName()).equalTo("Italy"))
                 .groupBy(col(YEAR_MONTH_COL_NAME))
                 .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(AVG_CARBON_INTENSITY_COL_NAME),
                      avg(ParquetField.CFE_PERCENTAGE.getName()).as(AVG_CFE_PERCENTAGE_COL_NAME))

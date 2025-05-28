@@ -95,7 +95,7 @@ public class FirstQueryRDD implements Query {
     }
 
     private String getCountry(String[] fields) {
-        return fields[CsvField.COUNTRY.getIndex()];
+        return fields[CsvField.ZONE_ID.getIndex()];
     }
 
     private Integer getYear(String[] fields) {

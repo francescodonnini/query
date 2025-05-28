@@ -81,7 +81,7 @@ public class FirstQueryDF implements Query {
         var df = spark.read().parquet(datasetPath + ".parquet")
              .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)))
              .select(col(YEAR_COL_NAME),
-                     col(ParquetField.COUNTRY.getName()).as(COUNTRY_COL_NAME),
+                     col(ParquetField.ZONE_ID.getName()).as(COUNTRY_COL_NAME),
                      col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(carbonIntensityCol),
                      col(ParquetField.CFE_PERCENTAGE.getName()).as(cfePercentageCol))
              .as(Encoders.bean(Bean.class))
