@@ -40,7 +40,7 @@ public class ThirdQueryRDD implements Query {
     @Override
     public void submit() {
         var lines = spark.sparkContext()
-                .textFile(datasetPath, 1)
+                .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
         lines.mapToPair(this::getCfe)
                 .groupByKey()
