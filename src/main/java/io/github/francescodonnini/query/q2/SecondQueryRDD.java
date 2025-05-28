@@ -43,6 +43,7 @@ public class SecondQueryRDD implements Query {
 
     @Override
     public void submit() {
+        final var runId = String.valueOf(System.nanoTime());
         var averages = spark.read()
                 .parquet(datasetPath + ".parquet")
                 .filter(this::italianZone)
@@ -51,13 +52,13 @@ public class SecondQueryRDD implements Query {
                 .reduceByKey(Operators::sumDoubleIntPair)
                 .mapToPair(Operators::average)
                 .sortByKey(new IntPairComparator());
-        save(averages);
+        save(averages, runId);
         var tops = new ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>();
         tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(false)));
         tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(true)));
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(false)));
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(true)));
-        save(tops);
+        save(tops, runId);
     }
 
     private boolean italianZone(Row r) {
@@ -77,20 +78,20 @@ public class SecondQueryRDD implements Query {
                         new Tuple2<>(line.getDouble(CsvField.CFE_PERCENTAGE.getIndex()), 1)));
     }
 
-    private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
-        result.map(this::toCsv).saveAsTextFile(resultsPath + "-plots.csv");
+    private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result, String runId) {
+        result.map(this::toCsv).saveAsTextFile(resultsPath + "-" + runId + "-plots.csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
-                partition.forEachRemaining(row -> writer.writePoint(from(row)));
+                partition.forEachRemaining(row -> writer.writePoint(from(row, runId)));
             }
         });
     }
 
-    private Point from(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> row) {
+    private Point from(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> row, String runId) {
         var key = row._1();
         var val = row._2();
-        return Point.measurement("q2-rdd")
+        return Point.measurement("q2-rdd-" + runId)
                 .addField("avgCi", val._1())
                 .addField("avgCfe", val._2())
                 .time(getYearMonth(key), WritePrecision.S);
@@ -105,11 +106,11 @@ public class SecondQueryRDD implements Query {
                 .toInstant(ZonedDateTime.now().getOffset());
     }
 
-    private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
+    private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops, String runId) {
         try (var jsc = new JavaSparkContext(spark.sparkContext())) {
             jsc.parallelize(tops)
                     .map(this::toCsv)
-                    .saveAsTextFile(resultsPath + "-pairs.csv");
+                    .saveAsTextFile(resultsPath + "-" + runId + "-pairs.csv");
         }
     }
 }

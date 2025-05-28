@@ -44,6 +44,7 @@ public class SecondQueryDF implements Query {
 
     @Override
     public void submit() {
+        final var runId = String.valueOf(System.nanoTime());
         var averages = spark.read().parquet(datasetPath + ".parquet")
                 .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
                 .select(col(YEAR_MONTH_COL_NAME),
@@ -66,29 +67,29 @@ public class SecondQueryDF implements Query {
         var cfeAsc = averages
                 .orderBy(col(AVG_CFE_PERCENTAGE_COL_NAME).asc())
                 .limit(5);
-        saveToInfluxDB(averages);
+        saveToInfluxDB(averages, runId);
         averages.write()
                 .option("header", true)
-                .csv(resultsPath + "-plots");
+                .csv(resultsPath + "-" + runId + "-plots.csv");
         ciDesc.unionByName(ciAsc)
               .unionByName(cfeDesc)
               .unionByName(cfeAsc)
               .write()
               .option("header", true)
-              .csv(resultsPath + "-pairs");
+              .csv(resultsPath + "-" + runId + "-pairs.csv");
     }
 
     private Column getYearMonth(String colName) {
         return date_format(to_timestamp(col(colName), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
-    private void saveToInfluxDB(Dataset<Row> dataset) {
+    private void saveToInfluxDB(Dataset<Row> dataset, String runId) {
         dataset.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
                 var points = new ArrayList<Point>();
                 partition.forEachRemaining(row -> {
-                    var point = Point.measurement("q2-df")
+                    var point = Point.measurement("q2-df-" + runId)
                             .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
                             .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
                             .time(getTime(row), WritePrecision.MS);

@@ -40,12 +40,11 @@ public class QueryDispatcher {
         return "query-" +
                 command.getQueryKind().name().toLowerCase() +
                 "-" +
-                (command.useRDD() ? "rdd" : "df") +
-                "-" +
-                System.currentTimeMillis();
+                (command.useRDD() ? "rdd" : "df");
     }
 
     private static void timeQuery(Conf conf, QueryKind queryKind, boolean useRDD, int numOfRuns) {
+        var tag = conf.getString("SPARK_APP_NAME");
         var factory = getInfluxDbFactory(conf);
         try (var query = createQuery(conf, queryKind, useRDD);
              var influx = factory.create()) {
@@ -54,8 +53,9 @@ public class QueryDispatcher {
                 var start = System.nanoTime();
                 query.submit();
                 var duration = System.nanoTime() - start;
-                writer.writePoint(Point.measurement("time-" + queryKind.name())
-                        .addField("duration", duration));
+                writer.writePoint(Point.measurement("time")
+                        .addField("duration", duration)
+                        .addTag("app", tag));
             }
         } catch (Exception e) {
             logger.log(Level.SEVERE, "failed to execute query", e);

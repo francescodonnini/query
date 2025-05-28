@@ -76,8 +76,9 @@ public class FirstQueryDF implements Query {
 
     @Override
     public void submit() {
-        final String carbonIntensityCol = "carbonIntensity";
-        final String cfePercentageCol = "cfePercentage";
+        final var runId = String.valueOf(System.nanoTime());
+        final var carbonIntensityCol = "carbonIntensity";
+        final var cfePercentageCol = "cfePercentage";
         var df = spark.read().parquet(datasetPath + ".parquet")
              .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)))
              .select(col(YEAR_COL_NAME),
@@ -95,17 +96,17 @@ public class FirstQueryDF implements Query {
                   min(col(cfePercentageCol)));
         df.write()
                 .option("header", true)
-                .csv(resultsPath);
+                .csv(resultsPath + "-" + runId + ".csv");
         df.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
-                partition.forEachRemaining(row -> writer.writePoint(from(row)));
+                partition.forEachRemaining(row -> writer.writePoint(from(row, runId)));
             }
         });
     }
 
-    private Point from(Row row) {
-        return Point.measurement("q1-df")
+    private Point from(Row row, String runId) {
+        return Point.measurement("q1-df-" + runId)
                 .addTag(COUNTRY_COL_NAME, row.getString(COUNTRY_COL_INDEX))
                 .addField("avgCi", row.getDouble(2))
                 .addField("minCi", row.getDouble(3))

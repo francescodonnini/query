@@ -15,11 +15,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class FirstQueryRDD implements Query {
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
 
 
     public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
@@ -48,6 +48,7 @@ public class FirstQueryRDD implements Query {
      */
     @Override
     public void submit() {
+        final var runId = String.valueOf(System.nanoTime());
         var rdd = spark.sparkContext()
                 .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
@@ -57,7 +58,7 @@ public class FirstQueryRDD implements Query {
         var pairs = rdd.mapToPair(this::getPairs);
         var max = pairs.reduceByKey(this::getMax);
         var min = pairs.reduceByKey(this::getMin);
-        saveResult(averages, min, max);
+        saveResult(averages, min, max, runId);
     }
 
     private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOccurrences(String line) {
@@ -105,25 +106,26 @@ public class FirstQueryRDD implements Query {
     private void saveResult(
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages,
             JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min,
-            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
+            JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max,
+            String runId) {
         var result = averages.join(min)
                 .join(max);
-        result.map(this::toCsv).saveAsTextFile(resultsPath);
+        result.map(this::toCsv).saveAsTextFile(resultsPath + "-" + runId + ".csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
-                partition.forEachRemaining(row -> writer.writePoint(from(row)));
+                partition.forEachRemaining(row -> writer.writePoint(from(row, runId)));
             }
         });
     }
 
-    private Point from(Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> row) {
+    private Point from(Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> row, String runId) {
         var key = row._1();
         var val = row._2();
         var avg = val._1()._1();
         var max = val._1()._2();
         var min = val._2();
-        return Point.measurement("q1-rdd")
+        return Point.measurement("q1-rdd-" + runId)
                 .addTag("country", key._1())
                 .addField("avgCi", avg._1())
                 .addField("avgCfe", avg._2())
