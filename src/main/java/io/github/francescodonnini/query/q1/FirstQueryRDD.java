@@ -52,7 +52,7 @@ public class FirstQueryRDD implements Query {
         var rdd = spark.sparkContext()
                 .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
-        var averages = rdd.mapToPair(this::getPairsWithOccurrences)
+        var averages = rdd.mapToPair(this::getPairsWithOnes)
                         .reduceByKey(Operators::sumDoubleIntPair)
                         .mapToPair(Operators::average);
         var pairs = rdd.mapToPair(this::getPairs);
@@ -61,7 +61,7 @@ public class FirstQueryRDD implements Query {
         saveResult(averages, min, max, runId);
     }
 
-    private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOccurrences(String line) {
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairsWithOnes(String line) {
         var fields = getFields(line);
         return new Tuple2<>(getKey(fields), new Tuple2<>(new Tuple2<>(getCID(fields), 1), new Tuple2<>(getCFE(fields), 1)));
     }
