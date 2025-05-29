@@ -91,7 +91,7 @@ public class QueryDispatcher {
                                          resultsPath, factory);
             case Q3:
                 if (useRDD) {
-                    return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
+                    return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
                 }
                 return new ThirdQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath);
             default:

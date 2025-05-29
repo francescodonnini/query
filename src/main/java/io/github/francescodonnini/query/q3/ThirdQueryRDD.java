@@ -1,7 +1,13 @@
 package io.github.francescodonnini.query.q3;
 
+import com.influxdb.client.domain.WritePrecision;
+import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
+import io.github.francescodonnini.query.InfluxDbWriterFactory;
+import io.github.francescodonnini.query.Operators;
 import io.github.francescodonnini.query.Query;
+import org.apache.spark.api.java.JavaPairRDD;
+import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.Tuple3;
@@ -15,12 +21,14 @@ public class ThirdQueryRDD implements Query {
     private final SparkSession spark;
     private final String datasetPath;
     private final String resultsPath;
+    private final InfluxDbWriterFactory factory;
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
 
-    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath) {
+    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
+        this.factory = factory;
     }
 
     @Override
@@ -42,21 +50,68 @@ public class ThirdQueryRDD implements Query {
         var lines = spark.sparkContext()
                 .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
-        lines.mapToPair(this::getCfe)
+        var averages = lines.mapToPair(this::getPairWithOnes)
+                .reduceByKey(Operators::sumDoubleIntPair)
+                .map(Operators::average);
+        save(averages);
+        var cfeQuantiles = lines.mapToPair(this::getCfe)
                 .groupByKey()
                 .mapValues(this::toSortedList)
-                .mapValues(this::getQuantiles)
-                .map(this::stringify)
-                .saveAsTextFile(resultsPath + "/cfe" );
-        lines.mapToPair(this::getCi)
+                .mapValues(this::getQuantiles);
+        save(resultsPath + "/cfe.csv", cfeQuantiles);
+        var ciQuantiles = lines.mapToPair(this::getCi)
                 .groupByKey()
                 .mapValues(this::toSortedList)
-                .mapValues(this::getQuantiles)
-                .map(this::stringify)
-                .saveAsTextFile(resultsPath + "/ci");
+                .mapValues(this::getQuantiles);
+        save(resultsPath + "/ci.csv", ciQuantiles);
     }
 
-    private Object stringify(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
+    private void save(String path, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles) {
+        quantiles.map(this::qToCsv)
+                .saveAsTextFile(path);
+    }
+
+    private void save(JavaRDD<Tuple2<Integer, Tuple2<Double, Double>>> averages) {
+        averages
+                .map(this::toCsv)
+                .saveAsTextFile(resultsPath + "/averages.csv");
+        try (var client = factory.create() ) {
+            var writer = client.getWriteApiBlocking();
+            averages.map(this::toPoint)
+                            .foreachPartition(p -> p.forEachRemaining(writer::writePoint));
+        }
+    }
+
+    private Point toPoint(Tuple2<Integer, Tuple2<Double, Double>> avg) {
+        return Point.measurement("q3-rdd-points")
+                .addField("avgCi", avg._2()._1())
+                .addField("avgCfe", avg._2()._2())
+                .time(avg._1(), WritePrecision.S);
+    }
+
+    private String toCsv(Tuple2<Integer, Tuple2<Double, Double>> avg) {
+        return avg._1() + "," + avg._2()._1() + "," + avg._2()._2();
+    }
+
+    private Tuple2<Integer, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairWithOnes(String line) {
+        var fields = getFields(line);
+        return new Tuple2<>(getDay(fields), new Tuple2<>(getCiWithOne(fields), getCfeWithOne(fields)));
+    }
+
+    private int getDay(String[] fields) {
+        var date = LocalDateTime.parse(getDatetime(fields), formatter);
+        return date.getDayOfYear() * (date.getYear() - 2021);
+    }
+
+    private Tuple2<Double, Integer> getCiWithOne(String[] fields) {
+        return new Tuple2<>(getCi(fields), 1);
+    }
+
+    private Tuple2<Double, Integer> getCfeWithOne(String[] fields) {
+        return new Tuple2<>(getCfe(fields), 1);
+    }
+
+    private String qToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
         return x._1()._1() + "," + x._1()._2() + "," + x._2()._1() + "," + x._2()._2() + "," + x._2()._3();
     }
 

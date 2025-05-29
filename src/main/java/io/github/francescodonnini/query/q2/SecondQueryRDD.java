@@ -44,8 +44,8 @@ public class SecondQueryRDD implements Query {
     @Override
     public void submit() {
         final var runId = String.valueOf(System.nanoTime());
-        var averages = spark.read()
-                .parquet(datasetPath + ".parquet")
+        var averages = spark.()
+                .parquet(datasetPath + ".csv")
                 .filter(this::italianZone)
                 .javaRDD()
                 .mapToPair(this::toPair)
