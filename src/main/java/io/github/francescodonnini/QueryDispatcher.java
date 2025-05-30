@@ -46,7 +46,7 @@ public class QueryDispatcher {
     private static void timeQuery(Conf conf, QueryKind queryKind, boolean useRDD, int numOfRuns) {
         var tag = conf.getString("SPARK_APP_NAME");
         var factory = getInfluxDbFactory(conf);
-        try (var query = createQuery(conf, queryKind, useRDD);
+        try (var query = createQuery(conf, queryKind, useRDD, false);
              var influx = factory.create()) {
             var writer = influx.getWriteApiBlocking();
             for (var i = 0; i < numOfRuns; ++i) {
@@ -64,7 +64,7 @@ public class QueryDispatcher {
     }
 
     private static void executeQuery(Conf conf, QueryKind queryKind, boolean useRDD) {
-        try (var query = createQuery(conf, queryKind, useRDD)) {
+        try (var query = createQuery(conf, queryKind, useRDD, true)) {
             query.submit();
         } catch (Exception e) {
             logger.log(Level.SEVERE, "failed to execute query", e);
@@ -72,23 +72,21 @@ public class QueryDispatcher {
         }
     }
 
-    private static Query createQuery(Conf conf, QueryKind queryKind, boolean useRDD) {
+    private static Query createQuery(Conf conf, QueryKind queryKind, boolean useRDD, boolean save) {
         var datasetPath = getDatasetPath(conf);
         var resultsPath = getResultsPath(conf);
         var factory = getInfluxDbFactory(conf);
         switch (queryKind) {
             case Q1:
                 if (useRDD) {
-                    return new FirstQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
+                    return new FirstQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory, save);
                 }
-                return new FirstQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
+                return new FirstQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory, save);
             case Q2:
                 if (useRDD) {
-                    return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
+                    return new SecondQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory, save);
                 }
-                return new SecondQueryDF(SparkFactory.getSparkSession(conf),
-                                         datasetPath,
-                                         resultsPath, factory);
+                return new SecondQueryDF(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory, save);
             case Q3:
                 if (useRDD) {
                     return new ThirdQueryRDD(SparkFactory.getSparkSession(conf), datasetPath, resultsPath, factory);
