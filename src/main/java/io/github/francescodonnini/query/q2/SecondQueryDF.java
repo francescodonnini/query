@@ -29,12 +29,14 @@ public class SecondQueryDF implements Query {
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
+    private final boolean save;
 
-    public SecondQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
+    public SecondQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
+        this.save = save;
     }
 
     @Override
@@ -44,7 +46,6 @@ public class SecondQueryDF implements Query {
 
     @Override
     public void submit() {
-        final var runId = String.valueOf(System.nanoTime());
         var averages = spark.read().parquet(datasetPath + ".parquet")
                 .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
                 .select(col(YEAR_MONTH_COL_NAME),
@@ -67,29 +68,39 @@ public class SecondQueryDF implements Query {
         var cfeAsc = averages
                 .orderBy(col(AVG_CFE_PERCENTAGE_COL_NAME).asc())
                 .limit(5);
-        saveToInfluxDB(averages, runId);
-        averages.write()
-                .option("header", true)
-                .csv(resultsPath + "-" + runId + "-plots.csv");
-        ciDesc.unionByName(ciAsc)
-              .unionByName(cfeDesc)
-              .unionByName(cfeAsc)
-              .write()
-              .option("header", true)
-              .csv(resultsPath + "-" + runId + "-pairs.csv");
+        var sortedPairs = ciDesc.unionByName(ciAsc)
+                .unionByName(cfeDesc)
+                .unionByName(cfeAsc);
+        if (save) {
+            save(averages, sortedPairs);
+        } else {
+            sortedPairs.count();
+        }
+
     }
 
     private Column getYearMonth(String colName) {
         return date_format(to_timestamp(col(colName), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
-    private void saveToInfluxDB(Dataset<Row> dataset, String runId) {
+    private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+        saveToInfluxDB(averages);
+        averages.write()
+                .option("header", true)
+                .csv(resultsPath + "-plots.csv");
+        sortedPairs
+                .write()
+                .option("header", true)
+                .csv(resultsPath + "-pairs.csv");
+    }
+
+    private void saveToInfluxDB(Dataset<Row> dataset) {
         dataset.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
                 var points = new ArrayList<Point>();
                 partition.forEachRemaining(row -> {
-                    var point = Point.measurement("q2-df-" + runId)
+                    var point = Point.measurement("q2-df")
                             .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
                             .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
                             .time(getTime(row), WritePrecision.MS);

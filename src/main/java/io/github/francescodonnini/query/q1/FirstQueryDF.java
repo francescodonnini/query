@@ -6,6 +6,7 @@ import io.github.francescodonnini.data.ParquetField;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
+import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -61,12 +62,14 @@ public class FirstQueryDF implements Query {
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
+    private final boolean save;
 
-    public FirstQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
+    public FirstQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
+        this.save = save;
     }
 
     @Override
@@ -76,7 +79,6 @@ public class FirstQueryDF implements Query {
 
     @Override
     public void submit() {
-        final var runId = String.valueOf(System.nanoTime());
         final var carbonIntensityCol = "carbonIntensity";
         final var cfePercentageCol = "cfePercentage";
         var df = spark.read().parquet(datasetPath + ".parquet")
@@ -94,6 +96,15 @@ public class FirstQueryDF implements Query {
                   avg(col(cfePercentageCol)),
                   max(col(cfePercentageCol)),
                   min(col(cfePercentageCol)));
+        if (save) {
+            save(df);
+        } else {
+            df.count();
+        }
+    }
+
+    private void save(Dataset<Row> df) {
+        final var runId = String.valueOf(System.nanoTime());
         df.write()
                 .option("header", true)
                 .csv(resultsPath + "-" + runId + ".csv");
@@ -104,6 +115,7 @@ public class FirstQueryDF implements Query {
             }
         });
     }
+
 
     private Point from(Row row, String runId) {
         return Point.measurement("q1-df-" + runId)
