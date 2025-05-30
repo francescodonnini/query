@@ -12,12 +12,6 @@ public class TimeUtils {
                 .toInstant(ZoneOffset.UTC);
     }
 
-    public static Instant fromYearAndMonth(int year, Month month) {
-        return LocalDate.of(year, month, 1)
-                .atStartOfDay()
-                .toInstant(ZoneOffset.UTC);
-    }
-
     public static Instant fromYearAndMonth(int year, int month) {
         return LocalDate.of(year, month, 1)
                 .atStartOfDay()

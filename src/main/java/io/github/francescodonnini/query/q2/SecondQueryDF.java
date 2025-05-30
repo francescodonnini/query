@@ -12,8 +12,6 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.time.Instant;
-import java.time.YearMonth;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 
 import static org.apache.spark.sql.functions.*;
