@@ -5,6 +5,7 @@ import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.ParquetField;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
+import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -112,9 +113,6 @@ public class SecondQueryDF implements Query {
     }
 
     private Instant getTime(Row row) {
-        return YearMonth.parse(row.getString(YEAR_MONTH_COL_INDEX))
-                .atDay(1)
-                .atStartOfDay()
-                .toInstant(ZonedDateTime.now().getOffset());
+        return TimeUtils.fromYearAndMonth(row.getString(YEAR_MONTH_COL_INDEX));
     }
 }

@@ -1,8 +1,6 @@
 package io.github.francescodonnini.query;
 
-import java.time.Instant;
-import java.time.Year;
-import java.time.ZonedDateTime;
+import java.time.*;
 
 public class TimeUtils {
     private TimeUtils() {}
@@ -11,6 +9,31 @@ public class TimeUtils {
         return Year.of(year)
                 .atDay(1)
                 .atStartOfDay()
-                .toInstant(ZonedDateTime.now().getOffset());
+                .toInstant(ZoneOffset.UTC);
+    }
+
+    public static Instant fromYearAndMonth(int year, Month month) {
+        return LocalDate.of(year, month, 1)
+                .atStartOfDay()
+                .toInstant(ZoneOffset.UTC);
+    }
+
+    public static Instant fromYearAndMonth(int year, int month) {
+        return LocalDate.of(year, month, 1)
+                .atStartOfDay()
+                .toInstant(ZoneOffset.UTC);
+    }
+
+    public static Instant fromYearAndMonth(String yearAndMonth) {
+        return YearMonth.parse(yearAndMonth)
+                .atDay(1)
+                .atStartOfDay()
+                .toInstant(ZoneOffset.UTC);
+    }
+
+    public static Instant fromYearAndDayOfYear(int year, int dayOfYear) {
+        return LocalDate.ofYearDay(year, dayOfYear)
+                .atStartOfDay()
+                .toInstant(ZoneOffset.UTC);
     }
 }

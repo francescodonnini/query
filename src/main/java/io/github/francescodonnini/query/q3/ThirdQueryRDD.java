@@ -6,13 +6,14 @@ import io.github.francescodonnini.data.CsvField;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Operators;
 import io.github.francescodonnini.query.Query;
+import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.Tuple3;
 
-import java.time.LocalDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,13 +38,13 @@ public class ThirdQueryRDD implements Query {
     }
 
     /**
-     * Facendo riferimento al dataset dei valori energetici dell’Italia e della Svezia, aggregare i dati di cia-
-     * scun paese sulle 24 ore della giornata, calcolando il valor medio di “Carbon intensity gCO2 eq/kWh
+     * Facendo riferimento al dataset dei valori energetici dell’Italia e della Svezia, aggregare i dati di ciascun
+     * paese sulle 24 ore della giornata, calcolando il valor medio di “Carbon intensity gCO2 eq/kWh
      * (direct)” e “Carbon-free energy percentage (CFE%)”. Calcolare il minimo, 25-esimo, 50-esimo, 75-
      * esimo percentile e massimo del valor medio di “Carbon intensity gCO2 eq/kWh (direct)” e “Carbon-
      * free energy percentage (CFE%)”. Inoltre, considerando il valor medio di “Carbon intensity gCO2eq/kWh
-     * (direct)” e “Carbon-free energy percentage (CFE%)” aggregati sulle 24 fasce orarie giornaliere, ge-
-     * nerare due grafici che consentano di confrontare visivamente l’andamento per Italia e Svezia.
+     * (direct)” e “Carbon-free energy percentage (CFE%)” aggregati sulle 24 fasce orarie giornaliere, generare
+     * due grafici che consentano di confrontare visivamente l’andamento per Italia e Svezia.
      */
     @Override
     public void submit() {
@@ -51,68 +52,33 @@ public class ThirdQueryRDD implements Query {
                 .textFile(datasetPath + ".csv", 1)
                 .toJavaRDD();
         var averages = lines.mapToPair(this::getPairWithOnes)
-                .reduceByKey(Operators::sumDoubleIntPair)
-                .map(Operators::average);
-        save(averages);
+                .reduceByKey(Operators::sum3)
+                .map(Operators::average3);
         var cfeQuantiles = lines.mapToPair(this::getCfe)
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles);
-        save(resultsPath + "/cfe.csv", cfeQuantiles);
         var ciQuantiles = lines.mapToPair(this::getCi)
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles);
+        save(averages);
+        save(resultsPath + "/cfe.csv", cfeQuantiles);
         save(resultsPath + "/ci.csv", ciQuantiles);
     }
 
-    private void save(String path, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles) {
-        quantiles.map(this::qToCsv)
-                .saveAsTextFile(path);
-    }
-
-    private void save(JavaRDD<Tuple2<Integer, Tuple2<Double, Double>>> averages) {
-        averages
-                .map(this::toCsv)
-                .saveAsTextFile(resultsPath + "/averages.csv");
-        try (var client = factory.create() ) {
-            var writer = client.getWriteApiBlocking();
-            averages.map(this::toPoint)
-                            .foreachPartition(p -> p.forEachRemaining(writer::writePoint));
-        }
-    }
-
-    private Point toPoint(Tuple2<Integer, Tuple2<Double, Double>> avg) {
-        return Point.measurement("q3-rdd-points")
-                .addField("avgCi", avg._2()._1())
-                .addField("avgCfe", avg._2()._2())
-                .time(avg._1(), WritePrecision.S);
-    }
-
-    private String toCsv(Tuple2<Integer, Tuple2<Double, Double>> avg) {
-        return avg._1() + "," + avg._2()._1() + "," + avg._2()._2();
-    }
-
-    private Tuple2<Integer, Tuple2<Tuple2<Double, Integer>, Tuple2<Double, Integer>>> getPairWithOnes(String line) {
+    private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> getPairWithOnes(String line) {
         var fields = getFields(line);
-        return new Tuple2<>(getDay(fields), new Tuple2<>(getCiWithOne(fields), getCfeWithOne(fields)));
+        return new Tuple2<>(getYearDayOfYearPair(fields), getTriplet(fields));
     }
 
-    private int getDay(String[] fields) {
+    private Tuple2<Integer, Integer> getYearDayOfYearPair(String[] fields) {
         var date = LocalDateTime.parse(getDatetime(fields), formatter);
-        return date.getDayOfYear() * (date.getYear() - 2021);
+        return new Tuple2<>(date.getYear(), date.getDayOfYear());
     }
 
-    private Tuple2<Double, Integer> getCiWithOne(String[] fields) {
-        return new Tuple2<>(getCi(fields), 1);
-    }
-
-    private Tuple2<Double, Integer> getCfeWithOne(String[] fields) {
-        return new Tuple2<>(getCfe(fields), 1);
-    }
-
-    private String qToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
-        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1() + "," + x._2()._2() + "," + x._2()._3();
+    private Tuple3<Double, Double, Integer> getTriplet(String[] fields) {
+        return new Tuple3<>(getCi(fields), getCfe(fields), 1);
     }
 
     private Tuple3<Double, Double, Double> getQuantiles(List<Double> list) {
@@ -163,5 +129,45 @@ public class ThirdQueryRDD implements Query {
 
     private String[] getFields(String line) {
         return line.split(",");
+    }
+
+    private void save(String path, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles) {
+        quantiles.map(this::qToCsv)
+                .saveAsTextFile(path);
+    }
+
+    private String qToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
+        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1() + "," + x._2()._2() + "," + x._2()._3();
+    }
+
+    private void save(JavaRDD<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> averages) {
+        averages
+                .map(this::toCsv)
+                .saveAsTextFile(resultsPath + "/averages.csv");
+        try (var client = factory.create() ) {
+            var writer = client.getWriteApiBlocking();
+            averages.map(this::toPoint)
+                    .foreachPartition(p -> p.forEachRemaining(writer::writePoint));
+        }
+    }
+
+    private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
+        var date = fromYearAndDayOfYear(avg._1()).format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        return date + "," + avg._2()._1() + "," + avg._2()._2();
+    }
+
+    private LocalDate fromYearAndDayOfYear(Tuple2<Integer, Integer> yearDayOfYear) {
+        return LocalDate.ofYearDay(yearDayOfYear._1(), yearDayOfYear._2());
+    }
+
+    private Point toPoint(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
+        return Point.measurement("q3-rdd-points")
+                .addField("avgCi", avg._2()._1())
+                .addField("avgCfe", avg._2()._2())
+                .time(getTime(avg._1()), WritePrecision.MS);
+    }
+
+    private Instant getTime(Tuple2<Integer, Integer> yearDayOfYear) {
+        return TimeUtils.fromYearAndDayOfYear(yearDayOfYear._1(), yearDayOfYear._2());
     }
 }

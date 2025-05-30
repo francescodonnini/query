@@ -143,7 +143,7 @@ public class FirstQueryRDD implements Query {
                 .addField("maxCfe", max._2())
                 .addField("minCi", min._1())
                 .addField("minCfe", min._2())
-                .time(TimeUtils.fromYear(key._2()), WritePrecision.S);
+                .time(TimeUtils.fromYear(key._2()), WritePrecision.MS);
     }
 
     private String toCsv(

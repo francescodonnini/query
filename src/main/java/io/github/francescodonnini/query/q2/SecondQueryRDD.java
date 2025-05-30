@@ -6,16 +6,14 @@ import io.github.francescodonnini.data.CsvField;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.Operators;
+import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.Tuple3;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.YearMonth;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,16 +104,11 @@ public class SecondQueryRDD implements Query {
         return Point.measurement("q2-rdd")
                 .addField("avgCi", val._1())
                 .addField("avgCfe", val._2())
-                .time(getYearMonth(key), WritePrecision.S);
+                .time(getTime(key), WritePrecision.MS);
     }
 
-    private Instant getYearMonth(Tuple2<Integer, Integer> key) {
-        var year = key._1();
-        var month = key._2();
-        return YearMonth.of(year, month)
-                .atDay(1)
-                .atStartOfDay()
-                .toInstant(ZonedDateTime.now().getOffset());
+    private Instant getTime(Tuple2<Integer, Integer> key) {
+        return TimeUtils.fromYearAndMonth(key._1(), key._2());
     }
 
     private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
