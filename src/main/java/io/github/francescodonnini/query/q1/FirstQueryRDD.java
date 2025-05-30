@@ -61,7 +61,7 @@ public class FirstQueryRDD implements Query {
         var min = pairs.reduceByKey(this::getMin);
         var result = averages.join(min).join(max);
         if (save) {
-            saveResult(result);
+            save(result);
         } else {
             result.count();
         }
@@ -119,7 +119,7 @@ public class FirstQueryRDD implements Query {
         return LocalDateTime.parse(fields[CsvField.DATETIME_UTC.getIndex()], formatter).getYear();
     }
 
-    private void saveResult(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
+    private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
         result.map(this::toCsv).saveAsTextFile(resultsPath + ".csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
