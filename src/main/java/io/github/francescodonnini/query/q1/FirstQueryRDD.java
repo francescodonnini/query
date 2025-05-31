@@ -13,6 +13,7 @@ import scala.Tuple3;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 
 public class FirstQueryRDD implements Query {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
@@ -63,7 +64,9 @@ public class FirstQueryRDD implements Query {
         if (save) {
             save(result);
         } else {
-            result.count();
+            var list = result.collect();
+            var s = String.format("total number of objects = %d%n", list.size());
+            spark.logWarning(() -> s);
         }
     }
 
@@ -120,11 +123,14 @@ public class FirstQueryRDD implements Query {
     }
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
-        result.map(this::toCsv).saveAsTextFile(resultsPath + ".csv");
+        var csv = result.map(this::toCsv);
+        csv.saveAsTextFile(resultsPath + ".csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
-                partition.forEachRemaining(row -> writer.writePoint(from(row)));
+                var points = new ArrayList<Point>();
+                partition.forEachRemaining(row -> points.add(from(row)));
+                writer.writePoints(points);
             }
         });
     }
@@ -135,14 +141,15 @@ public class FirstQueryRDD implements Query {
         var avg = val._1()._1();
         var max = val._1()._2();
         var min = val._2();
-        return Point.measurement("q1-rdd")
-                .addTag("country", key._1())
+        return Point.measurement("result")
+                .addField("country", key._1())
                 .addField("avgCi", avg._1())
                 .addField("avgCfe", avg._2())
                 .addField("maxCi", max._1())
                 .addField("maxCfe", max._2())
                 .addField("minCi", min._1())
                 .addField("minCfe", min._2())
+                .addTag("app", spark.sparkContext().getConf().get("spark.app.name"))
                 .time(TimeUtils.fromYear(key._2()), WritePrecision.MS);
     }
 

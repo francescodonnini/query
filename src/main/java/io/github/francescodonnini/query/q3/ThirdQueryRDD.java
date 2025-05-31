@@ -161,9 +161,10 @@ public class ThirdQueryRDD implements Query {
     }
 
     private Point toPoint(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
-        return Point.measurement("q3-rdd-points")
+        return Point.measurement("result")
                 .addField("avgCi", avg._2()._1())
                 .addField("avgCfe", avg._2()._2())
+                .addTag("app", spark.sparkContext().appName())
                 .time(getTime(avg._1()), WritePrecision.MS);
     }
 

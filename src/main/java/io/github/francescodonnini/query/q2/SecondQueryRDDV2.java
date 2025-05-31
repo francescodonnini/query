@@ -4,21 +4,21 @@ import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.Operators;
+import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.api.java.JavaPairRDD;
-import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.Tuple3;
 
-import java.time.*;
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Comparator;
 
-public class SecondQueryRDD implements Query {
+public class SecondQueryRDDV2 implements Query {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
     private final String datasetPath;
@@ -26,11 +26,11 @@ public class SecondQueryRDD implements Query {
     private final InfluxDbWriterFactory factory;
     private final boolean save;
 
-    public SecondQueryRDD(SparkSession spark,
-            String datasetPath,
-            String resultsPath,
-            InfluxDbWriterFactory factory,
-            boolean save) {
+    public SecondQueryRDDV2(SparkSession spark,
+                          String datasetPath,
+                          String resultsPath,
+                          InfluxDbWriterFactory factory,
+                          boolean save) {
         this.spark = spark;
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
@@ -50,18 +50,24 @@ public class SecondQueryRDD implements Query {
                 .filter(this::italianZone)
                 .mapToPair(this::toPair)
                 .reduceByKey(Operators::sum3)
-                .mapToPair(Operators::average3)
-                .sortByKey(new IntPairComparator());
-        var tops = new ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>();
-        tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(false)));
-        tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(true)));
-        tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(false)));
-        tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(true)));
+                .mapToPair(Operators::average3);
+        var count = averages.count();
+        var swappedKeyValuePairs = averages.mapToPair(Tuple2::swap);
+        var ci = swappedKeyValuePairs
+                .sortByKey(Comparator.comparingDouble(Tuple2::_1))
+                .zipWithIndex()
+                .filter(x -> x._2() < 5 && x._2() >= count - 5);
+        var cfe = swappedKeyValuePairs
+                .sortByKey(Comparator.comparingDouble(Tuple2::_2))
+                .zipWithIndex()
+                .filter(x -> x._2() < 5 && x._2() >= count - 5);
         if (save) {
-            save(averages);
-            save(tops);
+            save(averages.sortByKey(new IntPairComparator()));
+            save(ci, cfe);
         } else {
-            var s = String.format("averages count=%d%n", tops.size());
+            var ciList = ci.collect();
+            var cfeList = cfe.collect();
+            var s = String.format("averages count=%d, ci count=%d, cfe count=%d%n", count, ciList.size(), cfeList.size());
             spark.logWarning(() -> s);
         }
     }
@@ -92,8 +98,7 @@ public class SecondQueryRDD implements Query {
     }
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
-        var csv = result.map(this::toCsv);
-        csv.saveAsTextFile(resultsPath + "-plots.csv");
+        result.map(this::toCsv).saveAsTextFile(resultsPath + "-plots.csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
@@ -118,15 +123,17 @@ public class SecondQueryRDD implements Query {
         return TimeUtils.fromYearAndMonth(key._1(), key._2());
     }
 
-    private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
-        try (var jsc = new JavaSparkContext(spark.sparkContext())) {
-            var csv = jsc.parallelize(tops)
-                    .map(this::toCsv);
-            csv.saveAsTextFile(resultsPath + "-pairs.csv");
-        }
-    }
-
     private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> x) {
         return x._1()._1() + "-" + x._1()._2() + "," + x._2()._1() + "," + x._2()._2();
+    }
+
+    private void save(JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ci, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfe) {
+        ci.map(this::toCsv2).saveAsTextFile(resultsPath + "ci-pairs.csv");
+        cfe.map(this::toCsv2).saveAsTextFile(resultsPath + "cfe-pairs.csv");
+    }
+
+    private String toCsv2(Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> r) {
+        var data = r._1();
+        return data._2()._1() + "-" + data._2()._2() + "," + data._1()._1() + "," + data._1()._2();
     }
 }

@@ -50,7 +50,7 @@ public class SecondQueryDF implements Query {
                 .select(col(YEAR_MONTH_COL_NAME),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
                         col(ParquetField.CFE_PERCENTAGE.getName()))
-                .where(col(ParquetField.ZONE_ID.getName()).equalTo("Italy"))
+                .where(col(ParquetField.ZONE_ID.getName()).equalTo("IT"))
                 .groupBy(col(YEAR_MONTH_COL_NAME))
                 .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(AVG_CARBON_INTENSITY_COL_NAME),
                      avg(ParquetField.CFE_PERCENTAGE.getName()).as(AVG_CFE_PERCENTAGE_COL_NAME))
@@ -73,7 +73,10 @@ public class SecondQueryDF implements Query {
         if (save) {
             save(averages, sortedPairs);
         } else {
-            sortedPairs.count();
+            var avgList = averages.collectAsList();
+            var pairList = sortedPairs.collectAsList();
+            var s = String.format("averageList size = %d, pairList size = %d%n", avgList.size(), pairList.size());
+            spark.logWarning(() -> s);
         }
 
     }
@@ -99,9 +102,10 @@ public class SecondQueryDF implements Query {
                 var writer = client.getWriteApiBlocking();
                 var points = new ArrayList<Point>();
                 partition.forEachRemaining(row -> {
-                    var point = Point.measurement("q2-df")
+                    var point = Point.measurement("result")
                             .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
                             .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
+                            .addTag("app", spark.sparkContext().appName())
                             .time(getTime(row), WritePrecision.MS);
                     points.add(point);
                 });

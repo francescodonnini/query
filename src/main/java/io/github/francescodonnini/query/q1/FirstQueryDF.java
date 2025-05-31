@@ -12,6 +12,7 @@ import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.time.Instant;
+import java.util.ArrayList;
 
 import static org.apache.spark.sql.functions.*;
 
@@ -99,26 +100,29 @@ public class FirstQueryDF implements Query {
         if (save) {
             save(df);
         } else {
-            df.count();
+            var list = df.collectAsList();
+            var s = String.format("total number of objects = %d%n", list.size());
+            spark.logWarning(() -> s);
         }
     }
 
     private void save(Dataset<Row> df) {
-        final var runId = String.valueOf(System.nanoTime());
         df.write()
                 .option("header", true)
-                .csv(resultsPath + "-" + runId + ".csv");
+                .csv(resultsPath + ".csv");
         df.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
-                partition.forEachRemaining(row -> writer.writePoint(from(row, runId)));
+                var points = new ArrayList<Point>();
+                partition.forEachRemaining(row -> points.add(from(row)));
+                writer.writePoints(points);
             }
         });
     }
 
 
-    private Point from(Row row, String runId) {
-        return Point.measurement("q1-df-" + runId)
+    private Point from(Row row) {
+        return Point.measurement("result")
                 .addTag(COUNTRY_COL_NAME, row.getString(COUNTRY_COL_INDEX))
                 .addField("avgCi", row.getDouble(2))
                 .addField("minCi", row.getDouble(3))
@@ -126,6 +130,7 @@ public class FirstQueryDF implements Query {
                 .addField("avgCfe", row.getDouble(5))
                 .addField("minCfe", row.getDouble(6))
                 .addField("maxCfe", row.getDouble(7))
+                .addTag("app", spark.sparkContext().appName())
                 .time(getTime(row), WritePrecision.MS);
     }
 
