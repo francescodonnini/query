@@ -8,7 +8,7 @@ import java.util.function.Function;
 
 public class InfluxDbUtils {
     private InfluxDbUtils() {}
-    
+
     public static <T> void save(
             InfluxDbWriterFactory clientFactory,
             Iterator<T> partition,

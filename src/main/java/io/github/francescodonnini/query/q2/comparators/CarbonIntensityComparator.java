@@ -1,4 +1,4 @@
-package io.github.francescodonnini.query.q2;
+package io.github.francescodonnini.query.q2.comparators;
 
 import scala.Tuple2;
 

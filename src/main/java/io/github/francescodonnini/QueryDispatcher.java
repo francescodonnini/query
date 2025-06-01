@@ -3,6 +3,7 @@ package io.github.francescodonnini;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.cli.Command;
+import io.github.francescodonnini.cli.QueryKind;
 import io.github.francescodonnini.conf.Conf;
 import io.github.francescodonnini.conf.ConfFactory;
 import io.github.francescodonnini.query.*;
@@ -10,7 +11,7 @@ import io.github.francescodonnini.query.q1.FirstQueryDF;
 import io.github.francescodonnini.query.q1.FirstQueryRDD;
 import io.github.francescodonnini.query.q2.SecondQueryDF;
 import io.github.francescodonnini.query.q2.SecondQueryRDD;
-import io.github.francescodonnini.query.q2.SecondQueryRDDV2;
+import io.github.francescodonnini.query.q2.SecondQueryRDDZipped;
 import io.github.francescodonnini.query.q3.ThirdQueryDF;
 import io.github.francescodonnini.query.q3.ThirdQueryRDD;
 import picocli.CommandLine;
@@ -53,13 +54,14 @@ public class QueryDispatcher {
         var tag = conf.getString("SPARK_APP_NAME");
         logger.log(Level.INFO, () -> String.format("timeQuery appName=%s, #runs=%d", tag, time.get()));
         var factory = getInfluxDbFactory(conf);
-        try (var query = createQuery(conf, command);
-             var influx = factory.create()) {
+        try (var influx = factory.create()) {
             var writer = influx.getWriteApiBlocking();
             var points = new ArrayList<Point>();
             for (var i = 0; i < time.get(); ++i) {
                 var start = Instant.now();
-                query.submit();
+                try (var query = createQuery(conf, command)) {
+                    query.submit();
+                }
                 var duration = Duration.between(start, Instant.now());
                 points.add(Point.measurement("time")
                         .addField("duration", duration.toMillis())
@@ -83,7 +85,7 @@ public class QueryDispatcher {
     }
 
     private static Query createQuery(Conf conf, Command command) {
-        var datasetPath = getDatasetPath(conf);
+        var datasetPath = getDatasetPath(conf, command.getQueryKind());
         var resultsPath = getResultsPath(conf);
         var factory = getInfluxDbFactory(conf);
         var spark = SparkFactory.getSparkSession(conf);
@@ -98,7 +100,7 @@ public class QueryDispatcher {
             case Q2_RDD:
                 return new SecondQueryRDD(spark, datasetPath, resultsPath, factory, save);
             case Q2_ZIPPED:
-                return new SecondQueryRDDV2(spark, datasetPath, resultsPath, factory, save);
+                return new SecondQueryRDDZipped(spark, datasetPath, resultsPath, factory, save);
             case Q3_DF:
                 return new ThirdQueryDF(spark, datasetPath, resultsPath);
             case Q3_RDD:
@@ -119,8 +121,30 @@ public class QueryDispatcher {
                 .setBucket(conf.getString("INFLUXDB_BUCKET"));
     }
 
-    private static String getDatasetPath(Conf conf) {
-        return HdfsUtils.createPath(conf, conf.getString("HDFS_PATH"));
+    private static String getDatasetPath(Conf conf, QueryKind kind) {
+        String path;
+        if (System.getenv("USE_IN_MEMORY_DATASET") != null) {
+            path ="file://" + "/opt" + "/dataset/" + "/data";
+        } else {
+            path = HdfsUtils.createPath(conf, conf.getString("HDFS_PATH"));
+        }
+        return path + getFormat(kind);
+    }
+
+    private static String getFormat(QueryKind kind) {
+        switch (kind) {
+            case Q1_DF:
+            case Q2_DF:
+            case Q3_DF:
+                return ".parquet";
+            case Q1_RDD:
+            case Q2_RDD:
+            case Q2_ZIPPED:
+            case Q3_RDD:
+                return ".csv";
+            default:
+                throw new IllegalArgumentException("invalid query " + kind);
+        }
     }
 
     private static String getResultsPath(Conf conf) {

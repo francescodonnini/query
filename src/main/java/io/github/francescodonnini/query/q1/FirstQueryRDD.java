@@ -14,7 +14,6 @@ import scala.Tuple3;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 
 public class FirstQueryRDD implements Query {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
@@ -53,7 +52,7 @@ public class FirstQueryRDD implements Query {
     @Override
     public void submit() {
         var rdd = spark.sparkContext()
-                .textFile(datasetPath + ".csv", 1)
+                .textFile(datasetPath, 1)
                 .toJavaRDD();
         var averages = rdd.mapToPair(this::getTriplet)
                         .reduceByKey(this::sumTriplet)

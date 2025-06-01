@@ -1,11 +1,11 @@
-package io.github.francescodonnini.query.q2;
+package io.github.francescodonnini.query.q2.comparators;
 
 import scala.Tuple2;
 
 import java.io.Serializable;
 import java.util.Comparator;
 
-class IntPairComparator implements Comparator<Tuple2<Integer, Integer>>, Serializable {
+public class IntPairComparator implements Comparator<Tuple2<Integer, Integer>>, Serializable {
     @Override
     public int compare(Tuple2<Integer, Integer> o1, Tuple2<Integer, Integer> o2) {
         var cmp = Integer.compare(o1._1(), o2._1());
