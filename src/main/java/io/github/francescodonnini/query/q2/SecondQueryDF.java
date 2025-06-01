@@ -3,16 +3,17 @@ package io.github.francescodonnini.query.q2;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.ParquetField;
+import io.github.francescodonnini.query.InfluxDbUtils;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
+import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.time.Instant;
-import java.util.ArrayList;
 
 import static org.apache.spark.sql.functions.*;
 
@@ -45,7 +46,7 @@ public class SecondQueryDF implements Query {
 
     @Override
     public void submit() {
-        var averages = spark.read().parquet(datasetPath + ".parquet")
+        var averages = spark.read().parquet(datasetPath)
                 .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
                 .select(col(YEAR_MONTH_COL_NAME),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
@@ -97,21 +98,15 @@ public class SecondQueryDF implements Query {
     }
 
     private void saveToInfluxDB(Dataset<Row> dataset) {
-        dataset.foreachPartition(partition -> {
-            try (var client = factory.create()) {
-                var writer = client.getWriteApiBlocking();
-                var points = new ArrayList<Point>();
-                partition.forEachRemaining(row -> {
-                    var point = Point.measurement("result")
-                            .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
-                            .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
-                            .addTag("app", spark.sparkContext().appName())
-                            .time(getTime(row), WritePrecision.MS);
-                    points.add(point);
-                });
-                writer.writePoints(points);
-            }
-        });
+        dataset.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
+    }
+
+    private Point from(Row row) {
+        return Point.measurement("result")
+                .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
+                .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
+                .addTag("app", spark.sparkContext().appName())
+                .time(getTime(row), WritePrecision.MS);
     }
 
     private Instant getTime(Row row) {

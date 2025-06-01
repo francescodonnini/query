@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q3;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Operators;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaRDD;
 import org.apache.spark.sql.SparkSession;
@@ -49,7 +46,7 @@ public class ThirdQueryRDD implements Query {
     @Override
     public void submit() {
         var lines = spark.sparkContext()
-                .textFile(datasetPath + ".csv", 1)
+                .textFile(datasetPath, 1)
                 .toJavaRDD();
         var averages = lines.mapToPair(this::getPairWithOnes)
                 .reduceByKey(Operators::sum3)
@@ -62,9 +59,7 @@ public class ThirdQueryRDD implements Query {
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles);
-        save(averages);
-        save(resultsPath + "/cfe.csv", cfeQuantiles);
-        save(resultsPath + "/ci.csv", ciQuantiles);
+        save(averages, ciQuantiles, cfeQuantiles);
     }
 
     private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> getPairWithOnes(String line) {
@@ -131,24 +126,28 @@ public class ThirdQueryRDD implements Query {
         return line.split(",");
     }
 
-    private void save(String path, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles) {
-        quantiles.map(this::qToCsv)
-                .saveAsTextFile(path);
+    private void save(
+            JavaRDD<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> averages,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> ciQuantiles,
+            JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> cfeQuantiles) {
+        save(averages);
+        save(cfeQuantiles, "/quantiles/cfe.csv");
+        save(ciQuantiles, "/quantiles/ci.csv");
     }
 
-    private String qToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
+    private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles, String fileName) {
+        quantiles.map(this::quantileToCsv)
+                .saveAsTextFile(resultsPath + fileName);
+    }
+
+    private String quantileToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
         return x._1()._1() + "," + x._1()._2() + "," + x._2()._1() + "," + x._2()._2() + "," + x._2()._3();
     }
 
     private void save(JavaRDD<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> averages) {
-        averages
-                .map(this::toCsv)
+        averages.map(this::toCsv)
                 .saveAsTextFile(resultsPath + "/averages.csv");
-        try (var client = factory.create() ) {
-            var writer = client.getWriteApiBlocking();
-            averages.map(this::toPoint)
-                    .foreachPartition(p -> p.forEachRemaining(writer::writePoint));
-        }
+        averages.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
     private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
@@ -160,7 +159,7 @@ public class ThirdQueryRDD implements Query {
         return LocalDate.ofYearDay(yearDayOfYear._1(), yearDayOfYear._2());
     }
 
-    private Point toPoint(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
+    private Point from(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg) {
         return Point.measurement("result")
                 .addField("avgCi", avg._2()._1())
                 .addField("avgCfe", avg._2()._2())

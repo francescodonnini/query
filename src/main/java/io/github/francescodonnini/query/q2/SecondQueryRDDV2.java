@@ -45,7 +45,7 @@ public class SecondQueryRDDV2 implements Query {
 
     @Override
     public void submit() {
-        var averages = spark.sparkContext().textFile(datasetPath + ".csv", 1)
+        var averages = spark.sparkContext().textFile(datasetPath, 1)
                 .toJavaRDD()
                 .filter(this::italianZone)
                 .mapToPair(this::toPair)
@@ -62,8 +62,7 @@ public class SecondQueryRDDV2 implements Query {
                 .zipWithIndex()
                 .filter(x -> x._2() < 5 && x._2() >= count - 5);
         if (save) {
-            save(averages.sortByKey(new IntPairComparator()));
-            save(ci, cfe);
+            save(averages.sortByKey(new IntPairComparator()), ci, cfe);
         } else {
             var ciList = ci.collect();
             var cfeList = cfe.collect();
@@ -97,8 +96,17 @@ public class SecondQueryRDDV2 implements Query {
                 1);
     }
 
+    private void save(
+            JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ci,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfe) {
+        save(averages);
+        save(ci, "ci");
+        save(cfe, "cfe");
+    }
+
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
-        result.map(this::toCsv).saveAsTextFile(resultsPath + "-plots.csv");
+        result.map(this::toCsv).saveAsTextFile(resultsPath + "/plots.csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
@@ -127,9 +135,8 @@ public class SecondQueryRDDV2 implements Query {
         return x._1()._1() + "-" + x._1()._2() + "," + x._2()._1() + "," + x._2()._2();
     }
 
-    private void save(JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ci, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfe) {
-        ci.map(this::toCsv2).saveAsTextFile(resultsPath + "ci-pairs.csv");
-        cfe.map(this::toCsv2).saveAsTextFile(resultsPath + "cfe-pairs.csv");
+    private void save(JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> pairs, String fileName) {
+        pairs.map(this::toCsv2).saveAsTextFile(resultsPath + "/" + fileName + ".csv");
     }
 
     private String toCsv2(Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> r) {

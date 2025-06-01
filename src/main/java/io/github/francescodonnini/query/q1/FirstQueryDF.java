@@ -3,16 +3,17 @@ package io.github.francescodonnini.query.q1;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.ParquetField;
+import io.github.francescodonnini.query.InfluxDbUtils;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
+import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
 import java.time.Instant;
-import java.util.ArrayList;
 
 import static org.apache.spark.sql.functions.*;
 
@@ -82,7 +83,7 @@ public class FirstQueryDF implements Query {
     public void submit() {
         final var carbonIntensityCol = "carbonIntensity";
         final var cfePercentageCol = "cfePercentage";
-        var df = spark.read().parquet(datasetPath + ".parquet")
+        var df = spark.read().parquet(datasetPath)
              .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)))
              .select(col(YEAR_COL_NAME),
                      col(ParquetField.ZONE_ID.getName()).as(COUNTRY_COL_NAME),
@@ -108,16 +109,9 @@ public class FirstQueryDF implements Query {
 
     private void save(Dataset<Row> df) {
         df.write()
-                .option("header", true)
-                .csv(resultsPath + ".csv");
-        df.foreachPartition(partition -> {
-            try (var client = factory.create()) {
-                var writer = client.getWriteApiBlocking();
-                var points = new ArrayList<Point>();
-                partition.forEachRemaining(row -> points.add(from(row)));
-                writer.writePoints(points);
-            }
-        });
+          .option("header", true)
+          .csv(resultsPath + ".csv");
+        df.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
 

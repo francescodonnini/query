@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q2;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.Operators;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.SparkSession;
@@ -45,7 +42,7 @@ public class SecondQueryRDD implements Query {
 
     @Override
     public void submit() {
-        var averages = spark.sparkContext().textFile(datasetPath + ".csv", 1)
+        var averages = spark.sparkContext().textFile(datasetPath, 1)
                 .toJavaRDD()
                 .filter(this::italianZone)
                 .mapToPair(this::toPair)
@@ -94,14 +91,7 @@ public class SecondQueryRDD implements Query {
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
         var csv = result.map(this::toCsv);
         csv.saveAsTextFile(resultsPath + "-plots.csv");
-        result.foreachPartition(partition -> {
-            try (var client = factory.create()) {
-                var writer = client.getWriteApiBlocking();
-                var points = new ArrayList<Point>();
-                partition.forEachRemaining(row -> points.add(from(row)));
-                writer.writePoints(points);
-            }
-        });
+        result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
     private Point from(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> row) {

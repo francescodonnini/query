@@ -3,6 +3,7 @@ package io.github.francescodonnini.query.q1;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
+import io.github.francescodonnini.query.InfluxDbUtils;
 import io.github.francescodonnini.query.InfluxDbWriterFactory;
 import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
@@ -124,15 +125,8 @@ public class FirstQueryRDD implements Query {
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
         var csv = result.map(this::toCsv);
-        csv.saveAsTextFile(resultsPath + ".csv");
-        result.foreachPartition(partition -> {
-            try (var client = factory.create()) {
-                var writer = client.getWriteApiBlocking();
-                var points = new ArrayList<Point>();
-                partition.forEachRemaining(row -> points.add(from(row)));
-                writer.writePoints(points);
-            }
-        });
+        csv.saveAsTextFile(resultsPath);
+        result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
     private Point from(Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> row) {
