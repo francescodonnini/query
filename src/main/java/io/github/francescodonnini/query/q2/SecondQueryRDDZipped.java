@@ -53,22 +53,31 @@ public class SecondQueryRDDZipped implements Query {
                 .mapToPair(this::toPair)
                 .reduceByKey(Operators::sum3)
                 .mapToPair(Operators::average3);
-        final var count = averages.count();
         var swappedKeyValuePairs = averages.mapToPair(Tuple2::swap);
-        var ci = swappedKeyValuePairs
-                .sortByKey(new FirstFieldComparator())
+        var ciAsc = swappedKeyValuePairs
+                .sortByKey(new FirstFieldComparator(true))
                 .zipWithIndex()
-                .filter(x -> x._2() < 5 || x._2() >= count - 5);
-        var cfe = swappedKeyValuePairs
-                .sortByKey(new SecondFieldComparator())
+                .filter(x -> x._2() < 5);
+        var ciDesc = swappedKeyValuePairs
+                .sortByKey(new FirstFieldComparator(false))
                 .zipWithIndex()
-                .filter(x -> x._2() < 5 || x._2() >= count - 5);
+                .filter(x -> x._2() < 5);
+        var cfeAsc = swappedKeyValuePairs
+                .sortByKey(new SecondFieldComparator(true))
+                .zipWithIndex()
+                .filter(x -> x._2() < 5);
+        var cfeDesc = swappedKeyValuePairs
+                .sortByKey(new SecondFieldComparator(false))
+                .zipWithIndex()
+                .filter(x -> x._2() < 5);
         if (save) {
-            save(averages.sortByKey(new IntPairComparator()), ci, cfe);
+            save(averages.sortByKey(new IntPairComparator()), ciAsc, ciDesc, cfeAsc, cfeDesc);
         } else {
-            var ciListSize = ci.count();
-            var cfeListSize = cfe.count();
-            var s = String.format("averages count=%d, ci count=%d, cfe count=%d%n", count, ciListSize, cfeListSize);
+            var c1 = ciAsc.count();
+            var c2 = ciDesc.count();
+            var c3 = cfeAsc.count();
+            var c4 = cfeDesc.count();
+            var s = String.format("averages count=%d, c1=%d, c2=%d, c3=%d, c4=%d%n", averages.count(), c1, c2, c3, c4);
             spark.logWarning(() -> s);
         }
     }
@@ -99,12 +108,21 @@ public class SecondQueryRDDZipped implements Query {
     }
 
     private void save(
-            JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages,
-            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ci,
-            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfe) {
-        save(averages);
-        save(ci, "ci");
-        save(cfe, "cfe");
+            JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> avg,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ciAsc,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ciDesc,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfeAsc,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfeDesc) {
+        save(avg);
+        save(ciAsc, ciDesc, "ci");
+        save(cfeAsc, cfeDesc, "cfe");
+    }
+
+    private void save(
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> asc,
+            JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> desc,
+            String fileName) {
+        save(asc.union(desc), fileName);
     }
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
@@ -119,6 +137,10 @@ public class SecondQueryRDDZipped implements Query {
         });
     }
 
+    private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> x) {
+        return x._1()._1() + "-" + x._1()._2() + "," + x._2()._1() + "," + x._2()._2();
+    }
+
     private Point from(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> row) {
         var key = row._1();
         var val = row._2();
@@ -131,10 +153,6 @@ public class SecondQueryRDDZipped implements Query {
 
     private Instant getTime(Tuple2<Integer, Integer> key) {
         return TimeUtils.fromYearAndMonth(key._1(), key._2());
-    }
-
-    private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> x) {
-        return x._1()._1() + "-" + x._1()._2() + "," + x._2()._1() + "," + x._2()._2();
     }
 
     private void save(JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> pairs, String fileName) {
