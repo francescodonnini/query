@@ -11,11 +11,11 @@ public enum CsvField implements Serializable {
     public static final String DATETIME_FORMAT = "yyyy-MM-dd HH:mm:ss";
 
     private final int index;
-    private final String header;
+    private final String columnName;
 
-    CsvField(int index, String header) {
+    CsvField(int index, String columnName) {
         this.index = index;
-        this.header = header;
+        this.columnName = columnName;
     }
 
     public int getIndex() {
@@ -23,6 +23,6 @@ public enum CsvField implements Serializable {
     }
 
     public String getName() {
-        return header;
+        return columnName;
     }
 }
