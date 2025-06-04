@@ -10,6 +10,11 @@ public class ConfImpl implements Conf {
     }
 
     @Override
+    public boolean getBoolean(String name) {
+        return Boolean.parseBoolean(properties.getProperty(name));
+    }
+
+    @Override
     public int getInt(String name) {
         return Integer.parseInt(properties.getProperty(name));
     }
