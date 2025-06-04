@@ -75,12 +75,7 @@ public class SecondQueryRDDZipped implements Query {
         if (save) {
             save(averages.sortByKey(new IntPairComparator()), ciAsc, ciDesc, cfeAsc, cfeDesc);
         } else {
-            var c1 = ciAsc.count();
-            var c2 = ciDesc.count();
-            var c3 = cfeAsc.count();
-            var c4 = cfeDesc.count();
-            var s = String.format("averages count=%d, c1=%d, c2=%d, c3=%d, c4=%d%n", averages.count(), c1, c2, c3, c4);
-            spark.logWarning(() -> s);
+            collect(averages, ciAsc, ciDesc, cfeAsc, cfeDesc);
         }
     }
 
@@ -168,5 +163,13 @@ public class SecondQueryRDDZipped implements Query {
     private String toCsv2(Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> r) {
         var data = r._1();
         return data._2()._1() + "-" + data._2()._2() + "," + data._1()._1() + "," + data._1()._2();
+    }
+
+    private void collect(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ciAsc, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> ciDesc, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfeAsc, JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> cfeDesc) {
+        var c1 = ciAsc.count();
+        var c2 = ciDesc.count();
+        var c3 = cfeAsc.count();
+        var c4 = cfeDesc.count();
+        spark.logWarning(() -> String.format("averages count=%d, c1=%d, c2=%d, c3=%d, c4=%d%n", averages.count(), c1, c2, c3, c4));
     }
 }

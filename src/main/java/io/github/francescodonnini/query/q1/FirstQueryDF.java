@@ -103,9 +103,7 @@ public class FirstQueryDF implements Query {
         if (save) {
             save(df);
         } else {
-            var list = df.collectAsList();
-            var s = String.format("total number of objects = %d%n", list.size());
-            spark.logWarning(() -> s);
+            collect(df);
         }
     }
 
@@ -136,5 +134,11 @@ public class FirstQueryDF implements Query {
 
     private Instant getTime(Row row) {
         return TimeUtils.fromYear(row.getInt(YEAR_COL_INDEX));
+    }
+
+    private void collect(Dataset<Row> df) {
+        var list = df.collectAsList();
+        var s = String.format("total number of objects = %d%n", list.size());
+        spark.logWarning(() -> s);
     }
 }

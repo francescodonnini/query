@@ -76,10 +76,7 @@ public class SecondQueryDF implements Query {
         if (save) {
             save(averages, sortedPairs);
         } else {
-            var avgList = averages.collectAsList();
-            var pairList = sortedPairs.collectAsList();
-            var s = String.format("averageList size = %d, pairList size = %d%n", avgList.size(), pairList.size());
-            spark.logWarning(() -> s);
+            collect(averages, sortedPairs);
         }
 
     }
@@ -117,5 +114,11 @@ public class SecondQueryDF implements Query {
 
     private Instant getTime(Row row) {
         return TimeUtils.fromYearAndMonth(row.getString(YEAR_MONTH_COL_INDEX));
+    }
+
+    private void collect(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+        var avgList = averages.collectAsList();
+        var pairList = sortedPairs.collectAsList();
+        spark.logWarning(() -> String.format("#averageList = %d, #sortedPairs = %d%n", avgList.size(), pairList.size()));
     }
 }

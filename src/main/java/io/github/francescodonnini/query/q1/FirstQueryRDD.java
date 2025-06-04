@@ -67,13 +67,10 @@ public class FirstQueryRDD implements Query {
         var pairs = rdd.mapToPair(this::getPairs);
         var max = pairs.reduceByKey(this::getMax);
         var min = pairs.reduceByKey(this::getMin);
-        var result = averages.join(min).join(max);
         if (save) {
-            save(result);
+            save(averages, min, max);
         } else {
-            var list = result.collect();
-            var s = String.format("total number of objects = %d%n", list.size());
-            spark.logWarning(() -> s);
+            collect(averages, min, max);
         }
     }
 
@@ -129,6 +126,10 @@ public class FirstQueryRDD implements Query {
         return LocalDateTime.parse(fields[CsvField.DATETIME_UTC.getIndex()], formatter).getYear();
     }
 
+    private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
+        save(averages.join(min).join(max));
+    }
+
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
         var csv = result.map(this::toCsv);
         csv.saveAsTextFile(resultsPath);
@@ -161,5 +162,14 @@ public class FirstQueryRDD implements Query {
     private String toCsv(
             Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
         return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2();
+    }
+
+    private void collect(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
+        var list = averages
+                .join(min)
+                .join(max)
+                .collect();
+        var s = String.format("total number of objects = %d%n", list.size());
+        spark.logWarning(() -> s);
     }
 }

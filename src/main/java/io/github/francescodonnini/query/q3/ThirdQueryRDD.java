@@ -16,19 +16,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ThirdQueryRDD implements Query {
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
     private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
+    private final boolean save;
 
-    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
+    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
         this.spark = spark;
         appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
+        this.save = save;
     }
 
     @Override
@@ -61,7 +63,18 @@ public class ThirdQueryRDD implements Query {
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles);
-        save(averages, ciQuantiles, cfeQuantiles);
+        if (save) {
+            save(averages, ciQuantiles, cfeQuantiles);
+        } else {
+            collect(averages, cfeQuantiles, ciQuantiles);
+        }
+    }
+
+    private void collect(JavaRDD<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> averages, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> cfeQuantiles, JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> ciQuantiles) {
+        var list1 = averages.collect();
+        var list2 = ciQuantiles.collect();
+        var list3 = cfeQuantiles.collect();
+        spark.logWarning(() -> String.format("#averages = %d, #ciQuantiles = %d, #cfeQuantiles=%d", list1.size(), list2.size(), list3.size()));
     }
 
     private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> getPairWithOnes(String line) {

@@ -63,8 +63,7 @@ public class SecondQueryRDD implements Query {
             save(averages);
             save(tops);
         } else {
-            var s = String.format("averages count=%d%n", tops.size());
-            spark.logWarning(() -> s);
+            spark.logWarning(() -> String.format("averages count=%d%n", tops.size()));
         }
     }
 
