@@ -21,6 +21,7 @@ import java.util.List;
 public class SecondQueryRDD implements Query {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
+    private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
@@ -32,6 +33,7 @@ public class SecondQueryRDD implements Query {
             InfluxDbWriterFactory factory,
             boolean save) {
         this.spark = spark;
+        appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
@@ -103,8 +105,12 @@ public class SecondQueryRDD implements Query {
         return Point.measurement("result")
                 .addField("avgCi", val._1())
                 .addField("avgCfe", val._2())
-                .addTag("app", spark.sparkContext().appName())
+                .addTag("app", getAppName())
                 .time(getTime(key), WritePrecision.MS);
+    }
+
+    private String getAppName() {
+        return appName;
     }
 
     private Instant getTime(Tuple2<Integer, Integer> key) {

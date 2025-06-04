@@ -26,6 +26,7 @@ public class SecondQueryDF implements Query {
     private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 2;
 
     private final SparkSession spark;
+    private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
@@ -33,6 +34,7 @@ public class SecondQueryDF implements Query {
 
     public SecondQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
         this.spark = spark;
+        appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
@@ -105,8 +107,12 @@ public class SecondQueryDF implements Query {
         return Point.measurement("result")
                 .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
                 .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
-                .addTag("app", spark.sparkContext().appName())
+                .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
+    }
+
+    private String getAppName() {
+        return appName;
     }
 
     private Instant getTime(Row row) {

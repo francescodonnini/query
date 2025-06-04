@@ -18,14 +18,21 @@ import java.time.format.DateTimeFormatter;
 public class FirstQueryRDD implements Query {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
     private final SparkSession spark;
+    private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
     private final boolean save;
 
 
-    public FirstQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
+    public FirstQueryRDD(
+            SparkSession spark,
+            String datasetPath,
+            String resultsPath,
+            InfluxDbWriterFactory factory,
+            boolean save) {
         this.spark = spark;
+        this.appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
@@ -142,8 +149,13 @@ public class FirstQueryRDD implements Query {
                 .addField("maxCfe", max._2())
                 .addField("minCi", min._1())
                 .addField("minCfe", min._2())
-                .addTag("app", spark.sparkContext().getConf().get("spark.app.name"))
+                .addTag("app", getAppName())
+                .addTag("country", key._1())
                 .time(TimeUtils.fromYear(key._2()), WritePrecision.MS);
+    }
+
+    private String getAppName() {
+        return appName;
     }
 
     private String toCsv(

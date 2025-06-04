@@ -17,6 +17,7 @@ import java.util.List;
 
 public class ThirdQueryRDD implements Query {
     private final SparkSession spark;
+    private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
@@ -24,6 +25,7 @@ public class ThirdQueryRDD implements Query {
 
     public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory) {
         this.spark = spark;
+        appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
@@ -163,8 +165,12 @@ public class ThirdQueryRDD implements Query {
         return Point.measurement("result")
                 .addField("avgCi", avg._2()._1())
                 .addField("avgCfe", avg._2()._2())
-                .addTag("app", spark.sparkContext().appName())
+                .addTag("app", getAppName())
                 .time(getTime(avg._1()), WritePrecision.MS);
+    }
+
+    private String getAppName() {
+        return appName;
     }
 
     private Instant getTime(Tuple2<Integer, Integer> yearDayOfYear) {

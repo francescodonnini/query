@@ -61,6 +61,7 @@ public class FirstQueryDF implements Query {
     private static final String YEAR_COL_NAME = "year";
     private static final int YEAR_COL_INDEX = 1;
     private final SparkSession spark;
+    private final String appName;
     private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
@@ -68,6 +69,7 @@ public class FirstQueryDF implements Query {
 
     public FirstQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
         this.spark = spark;
+        this.appName = spark.sparkContext().appName();
         this.datasetPath = datasetPath;
         this.resultsPath = resultsPath;
         this.factory = factory;
@@ -124,8 +126,12 @@ public class FirstQueryDF implements Query {
                 .addField("avgCfe", row.getDouble(5))
                 .addField("minCfe", row.getDouble(6))
                 .addField("maxCfe", row.getDouble(7))
-                .addTag("app", spark.sparkContext().appName())
+                .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
+    }
+
+    private String getAppName() {
+        return appName;
     }
 
     private Instant getTime(Row row) {
