@@ -101,10 +101,8 @@ public class QueryDispatcher {
                 return new SecondQueryRDD(spark, datasetPath, resultsPath, factory, save);
             case Q2_ZIPPED:
                 return new SecondQueryRDDZipped(spark, datasetPath, resultsPath, factory, save);
-            case Q3_DF:
-                return new ThirdQueryDF(spark, datasetPath, resultsPath);
             case Q3_RDD:
-                return new ThirdQueryRDD(spark, datasetPath, resultsPath, factory);
+                return new ThirdQueryRDD(spark, datasetPath, resultsPath, factory, save);
             default:
                 throw new IllegalArgumentException("invalid query " + command.getQueryKind());
         }
