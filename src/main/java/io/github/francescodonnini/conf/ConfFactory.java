@@ -16,6 +16,9 @@ public class ConfFactory {
         try {
             setString(properties, "SPARK_MASTER_HOST");
             setString(properties, "SPARK_MASTER_PORT");
+            setBoolean(properties, "SPARK_EVENTLOG_ENABLED");
+            setString(properties, "SPARK_EVENTLOG_DIR");
+            setString(properties, "SPARK_EVENTLOG_FS_LOGDIRECTORY");
             setString(properties, "HDFS_HOST");
             setInt(properties, "HDFS_PORT");
             setString(properties, "HDFS_PATH");
@@ -31,6 +34,14 @@ public class ConfFactory {
             logger.log(Level.SEVERE, e.getMessage());
             return Optional.empty();
         }
+    }
+
+    private static void setBoolean(Properties properties, String name) {
+        var s = System.getenv(name);
+        if (s == null) {
+            throw new IllegalArgumentException("Environment variable " + name + " is required");
+        }
+        properties.setProperty(name, Boolean.parseBoolean(s) ? "true" : "false");
     }
 
     private static void setString(Properties properties, String name) {
