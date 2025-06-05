@@ -9,9 +9,11 @@ import io.github.francescodonnini.conf.ConfFactory;
 import io.github.francescodonnini.query.*;
 import io.github.francescodonnini.query.q1.FirstQueryDF;
 import io.github.francescodonnini.query.q1.FirstQueryRDD;
+import io.github.francescodonnini.query.q1.FirstQuerySQL;
 import io.github.francescodonnini.query.q2.SecondQueryDF;
 import io.github.francescodonnini.query.q2.SecondQueryRDD;
 import io.github.francescodonnini.query.q2.SecondQueryRDDZipped;
+import io.github.francescodonnini.query.q2.SecondQuerySQL;
 import io.github.francescodonnini.query.q3.ThirdQueryRDD;
 import picocli.CommandLine;
 
@@ -83,24 +85,28 @@ public class QueryDispatcher {
     }
 
     private static Query createQuery(Conf conf, Command command) {
-        var datasetPath = getDatasetPath(conf, command.getQueryKind());
-        var resultsPath = getResultsPath(conf);
+        var inputPath = getDatasetPath(conf, command.getQueryKind());
+        var outputPath = getOutputPath(conf);
         var factory = getInfluxDbFactory(conf);
         var spark = SparkFactory.getSparkSession(conf);
         var save = command.getTime().isEmpty();
         switch (command.getQueryKind()) {
             case Q1_DF:
-                return new FirstQueryDF(spark, datasetPath, resultsPath, factory, save);
+                return new FirstQueryDF(spark, inputPath, save, outputPath, factory);
             case Q1_RDD:
-                return new FirstQueryRDD(spark, datasetPath, resultsPath, factory, save);
+                return new FirstQueryRDD(spark, inputPath, outputPath, factory, save);
+            case Q1_SQL:
+                return new FirstQuerySQL(spark, inputPath, save, outputPath, factory);
             case Q2_DF:
-                return new SecondQueryDF(spark, datasetPath, resultsPath, factory, save);
+                return new SecondQueryDF(spark, inputPath, outputPath, factory, save);
             case Q2_RDD:
-                return new SecondQueryRDD(spark, datasetPath, resultsPath, factory, save);
+                return new SecondQueryRDD(spark, inputPath, outputPath, factory, save);
+            case Q2_SQL:
+                return new SecondQuerySQL(spark, inputPath, save, outputPath, factory);
             case Q2_ZIPPED:
-                return new SecondQueryRDDZipped(spark, datasetPath, resultsPath, factory, save);
+                return new SecondQueryRDDZipped(spark, inputPath, outputPath, factory, save);
             case Q3_RDD:
-                return new ThirdQueryRDD(spark, datasetPath, resultsPath, factory, save);
+                return new ThirdQueryRDD(spark, inputPath, outputPath, factory, save);
             default:
                 throw new IllegalArgumentException("invalid query " + command.getQueryKind());
         }
@@ -143,7 +149,7 @@ public class QueryDispatcher {
         }
     }
 
-    private static String getResultsPath(Conf conf) {
+    private static String getOutputPath(Conf conf) {
         return HdfsUtils.createPath(conf, "user", "spark", conf.getString("SPARK_APP_NAME"));
     }
 

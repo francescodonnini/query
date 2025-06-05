@@ -3,7 +3,7 @@ package io.github.francescodonnini.cli;
 import java.io.Serializable;
 
 public enum QueryKind implements Serializable {
-    Q1_DF, Q1_RDD, Q2_DF, Q2_RDD, Q2_ZIPPED, Q3_DF, Q3_RDD;
+    Q1_DF, Q1_RDD, Q1_SQL, Q2_DF, Q2_RDD, Q2_SQL, Q2_ZIPPED, Q3_DF, Q3_RDD;
 
     public static QueryKind fromString(String s) {
         switch (s) {
@@ -11,10 +11,14 @@ public enum QueryKind implements Serializable {
                 return Q1_DF;
             case "1R":
                 return Q1_RDD;
+            case "1S":
+                return Q1_SQL;
             case "2D":
                 return Q2_DF;
             case "2R":
                 return Q2_RDD;
+            case "2S":
+                return Q2_SQL;
             case "2Z":
                 return Q2_ZIPPED;
             case "3D":

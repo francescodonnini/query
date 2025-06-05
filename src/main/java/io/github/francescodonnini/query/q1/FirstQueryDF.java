@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q1;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.ParquetField;
-import io.github.francescodonnini.query.InfluxDbUtils;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -16,37 +13,25 @@ import java.time.Instant;
 
 import static org.apache.spark.sql.functions.*;
 
-public class FirstQueryDF implements Query {
+public class FirstQueryDF extends AbstractQuery {
     private static final String COUNTRY_COL_NAME = "country";
     private static final int COUNTRY_COL_INDEX = 0;
     private static final String YEAR_COL_NAME = "year";
     private static final int YEAR_COL_INDEX = 1;
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
-    private final String resultsPath;
+    private final String outputPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-    public FirstQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
-        this.spark = spark;
-        this.appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    public FirstQueryDF(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.outputPath = outputPath;
         this.factory = factory;
-        this.save = save;
-    }
-
-    @Override
-    public void close() {
-        spark.stop();
     }
 
     @Override
     public void submit() {
         final var carbonIntensityCol = "carbonIntensity";
         final var cfePercentageCol = "cfePercentage";
-        var df = spark.read().parquet(datasetPath)
+        var df = getSparkSession().read().parquet(getInputPath())
              .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)))
              .select(col(YEAR_COL_NAME),
                      col(ParquetField.ZONE_ID.getName()).as(COUNTRY_COL_NAME),
@@ -60,7 +45,7 @@ public class FirstQueryDF implements Query {
                   avg(col(cfePercentageCol)),
                   max(col(cfePercentageCol)),
                   min(col(cfePercentageCol)));
-        if (save) {
+        if (shouldSave()) {
             save(df);
         } else {
             collect(df);
@@ -70,7 +55,7 @@ public class FirstQueryDF implements Query {
     private void save(Dataset<Row> df) {
         df.write()
           .option("header", true)
-          .csv(resultsPath + ".csv");
+          .csv(outputPath + ".csv");
         df.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
@@ -88,10 +73,6 @@ public class FirstQueryDF implements Query {
                 .time(getTime(row), WritePrecision.MS);
     }
 
-    private String getAppName() {
-        return appName;
-    }
-
     private Instant getTime(Row row) {
         return TimeUtils.fromYear(row.getInt(YEAR_COL_INDEX));
     }
@@ -99,6 +80,6 @@ public class FirstQueryDF implements Query {
     private void collect(Dataset<Row> df) {
         var list = df.collectAsList();
         var s = String.format("total number of objects = %d%n", list.size());
-        spark.logWarning(() -> s);
+        getSparkSession().logWarning(() -> s);
     }
 }

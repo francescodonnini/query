@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q1;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
-import io.github.francescodonnini.query.InfluxDbUtils;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import org.apache.spark.api.java.JavaPairRDD;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
@@ -15,34 +12,17 @@ import scala.Tuple3;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public class FirstQueryRDD implements Query {
+public class FirstQueryRDD extends AbstractQuery {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
-    private final String resultsPath;
+    private final String outputPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-
-    public FirstQueryRDD(
-            SparkSession spark,
-            String datasetPath,
-            String resultsPath,
-            InfluxDbWriterFactory factory,
-            boolean save) {
-        this.spark = spark;
-        this.appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    protected FirstQueryRDD(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.outputPath = outputPath;
         this.factory = factory;
-        this.save = save;
     }
 
-    @Override
-    public void close() {
-        spark.stop();
-    }
 
     /**
      * Facendo riferimento al dataset dei valori energetici dell’Italia e della Svezia, aggregare i dati su base
@@ -58,8 +38,8 @@ public class FirstQueryRDD implements Query {
      */
     @Override
     public void submit() {
-        var rdd = spark.sparkContext()
-                .textFile(datasetPath, 1)
+        var rdd = getSparkSession().sparkContext()
+                .textFile(getInputPath(), 1)
                 .toJavaRDD();
         var averages = rdd.mapToPair(this::getTriplet)
                         .reduceByKey(this::sumTriplet)
@@ -67,7 +47,7 @@ public class FirstQueryRDD implements Query {
         var pairs = rdd.mapToPair(this::getPairs);
         var max = pairs.reduceByKey(this::getMax);
         var min = pairs.reduceByKey(this::getMin);
-        if (save) {
+        if (shouldSave()) {
             save(averages, min, max);
         } else {
             collect(averages, min, max);
@@ -132,7 +112,7 @@ public class FirstQueryRDD implements Query {
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
         var csv = result.map(this::toCsv);
-        csv.saveAsTextFile(resultsPath);
+        csv.saveAsTextFile(outputPath);
         result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
@@ -155,10 +135,6 @@ public class FirstQueryRDD implements Query {
                 .time(TimeUtils.fromYear(key._2()), WritePrecision.MS);
     }
 
-    private String getAppName() {
-        return appName;
-    }
-
     private String toCsv(
             Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
         return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2();
@@ -170,6 +146,6 @@ public class FirstQueryRDD implements Query {
                 .join(max)
                 .collect();
         var s = String.format("total number of objects = %d%n", list.size());
-        spark.logWarning(() -> s);
+        getSparkSession().logWarning(() -> s);
     }
 }
