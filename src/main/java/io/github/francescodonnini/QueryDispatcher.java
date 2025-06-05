@@ -94,7 +94,7 @@ public class QueryDispatcher {
             case Q1_DF:
                 return new FirstQueryDF(spark, inputPath, save, outputPath, factory);
             case Q1_RDD:
-                return new FirstQueryRDD(spark, inputPath, outputPath, factory, save);
+                return new FirstQueryRDD(spark, inputPath, save, outputPath, factory);
             case Q1_SQL:
                 return new FirstQuerySQL(spark, inputPath, save, outputPath, factory);
             case Q2_DF:

@@ -17,7 +17,7 @@ public class FirstQueryRDD extends AbstractQuery {
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
 
-    protected FirstQueryRDD(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+    public FirstQueryRDD(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
         super(spark, inputPath, save);
         this.outputPath = outputPath;
         this.factory = factory;
