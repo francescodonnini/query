@@ -136,7 +136,9 @@ public class QueryDispatcher {
     private static String getFormat(QueryKind kind) {
         switch (kind) {
             case Q1_DF:
+            case Q1_SQL:
             case Q2_DF:
+            case Q2_SQL:
             case Q3_DF:
                 return ".parquet";
             case Q1_RDD:

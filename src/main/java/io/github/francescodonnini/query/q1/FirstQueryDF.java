@@ -43,8 +43,8 @@ public class FirstQueryDF extends AbstractQuery {
                   min(col(carbonIntensityCol)),
                   max(col(carbonIntensityCol)),
                   avg(col(cfePercentageCol)),
-                  max(col(cfePercentageCol)),
-                  min(col(cfePercentageCol)));
+                  min(col(cfePercentageCol)),
+                  max(col(cfePercentageCol)));
         if (shouldSave()) {
             save(df);
         } else {
@@ -55,7 +55,7 @@ public class FirstQueryDF extends AbstractQuery {
     private void save(Dataset<Row> df) {
         df.write()
           .option("header", true)
-          .csv(outputPath + ".csv");
+          .csv(outputPath);
         df.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
