@@ -50,7 +50,7 @@ public class SecondQueryRDD implements Query {
         var averages = spark.sparkContext().textFile(datasetPath, 1)
                 .toJavaRDD()
                 .filter(this::italianZone)
-                .mapToPair(this::toPair)
+                .mapToPair(this::getKVPair)
                 .reduceByKey(Operators::sum3)
                 .mapToPair(Operators::average3)
                 .sortByKey(new IntPairComparator());
@@ -76,7 +76,7 @@ public class SecondQueryRDD implements Query {
         return line.split(",");
     }
 
-    private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> toPair(String line) {
+    private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> getKVPair(String line) {
         var fields = getFields(line);
         return new Tuple2<>(getKey(fields), getValue(fields));
     }

@@ -41,9 +41,9 @@ public class FirstQueryRDD extends AbstractQuery {
         var rdd = getSparkSession().sparkContext()
                 .textFile(getInputPath(), 1)
                 .toJavaRDD();
-        var averages = rdd.mapToPair(this::getTriplet)
-                        .reduceByKey(this::sumTriplet)
-                        .mapToPair(this::average);
+        var averages = rdd.mapToPair(this::getKVPair)
+                        .reduceByKey(Operators::sum3)
+                        .mapToPair(Operators::average3);
         var pairs = rdd.mapToPair(this::getPairs);
         var max = pairs.reduceByKey(this::getMax);
         var min = pairs.reduceByKey(this::getMin);
@@ -54,19 +54,9 @@ public class FirstQueryRDD extends AbstractQuery {
         }
     }
 
-    private Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Integer>> getTriplet(String line) {
+    private Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Integer>> getKVPair(String line) {
         var fields = getFields(line);
         return new Tuple2<>(getKey(fields), new Tuple3<>(getCID(fields), getCFE(fields), 1));
-    }
-
-    private Tuple3<Double, Double, Integer> sumTriplet(
-            Tuple3<Double, Double, Integer> x,
-            Tuple3<Double, Double, Integer> y) {
-        return new Tuple3<>(x._1() + y._1(), x._2() + y._2(), x._3() + y._3());
-    }
-
-    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> average(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Integer>> x) {
-        return new Tuple2<>(x._1(), new Tuple2<>(x._2()._1() / x._2()._3(), x._2()._2() / x._2()._3()));
     }
 
     private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
