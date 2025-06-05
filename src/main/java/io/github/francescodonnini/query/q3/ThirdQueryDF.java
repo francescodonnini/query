@@ -1,22 +1,11 @@
 package io.github.francescodonnini.query.q3;
 
-import io.github.francescodonnini.query.Query;
+import io.github.francescodonnini.query.AbstractQuery;
 import org.apache.spark.sql.SparkSession;
 
-public class ThirdQueryDF implements Query {
-    private final SparkSession spark;
-    private final String datasetPath;
-    private final String resultsPath;
-
-    public ThirdQueryDF(SparkSession spark, String datasetPath, String resultsPath) {
-        this.spark = spark;
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
-    }
-
-    @Override
-    public void close() {
-        spark.stop();
+public class ThirdQueryDF extends AbstractQuery {
+    public ThirdQueryDF(SparkSession spark, String inputPath, boolean save) {
+        super(spark, inputPath, save);
     }
 
     /**
