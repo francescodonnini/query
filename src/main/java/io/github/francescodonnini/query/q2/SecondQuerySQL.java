@@ -43,14 +43,16 @@ public class SecondQuerySQL extends AbstractQuery {
         dataFrame.createOrReplaceTempView(tableName);
         var result = dataFrame.sqlContext()
                 .sql(getSqlQuery(tableName));
+        final var aggregatedTable = "aggregated";
+        result.createOrReplaceTempView(aggregatedTable);
         var ciDesc = result.sqlContext()
-                .sql(getTopBy(tableName, AVG_CARBON_INTENSITY_COL_NAME, false, 5));
+                .sql(getTopBy(aggregatedTable, AVG_CARBON_INTENSITY_COL_NAME, false, 5));
         var ciAsc = result.sqlContext()
-                .sql(getTopBy(tableName, AVG_CARBON_INTENSITY_COL_NAME, true, 5));
+                .sql(getTopBy(aggregatedTable, AVG_CARBON_INTENSITY_COL_NAME, true, 5));
         var cfeDesc = result.sqlContext()
-                .sql(getTopBy(tableName, AVG_CFE_PERCENTAGE_COL_NAME, false, 5));
+                .sql(getTopBy(aggregatedTable, AVG_CFE_PERCENTAGE_COL_NAME, false, 5));
         var cfeAsc = result.sqlContext()
-                .sql(getTopBy(tableName, AVG_CFE_PERCENTAGE_COL_NAME, true, 5));
+                .sql(getTopBy(aggregatedTable, AVG_CFE_PERCENTAGE_COL_NAME, true, 5));
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
                 .unionByName(cfeAsc);
