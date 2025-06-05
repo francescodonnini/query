@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q2;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.CsvField;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Operators;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import io.github.francescodonnini.query.q2.comparators.FirstFieldComparator;
 import io.github.francescodonnini.query.q2.comparators.IntPairComparator;
 import io.github.francescodonnini.query.q2.comparators.SecondFieldComparator;
@@ -20,36 +17,21 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
-public class SecondQueryRDDZipped implements Query {
+public class SecondQueryRDDZipped extends AbstractQuery {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
-    private final String resultsPath;
+    private final String outputPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-    public SecondQueryRDDZipped(SparkSession spark,
-                                String datasetPath,
-                                String resultsPath,
-                                InfluxDbWriterFactory factory,
-                                boolean save) {
-        this.spark = spark;
-        appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    public SecondQueryRDDZipped(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.outputPath = outputPath;
         this.factory = factory;
-        this.save = save;
     }
 
-    @Override
-    public void close() {
-        spark.stop();
-    }
 
     @Override
     public void submit() {
-        var averages = spark.sparkContext().textFile(datasetPath, 1)
+        var averages = getSparkSession().sparkContext().textFile(getInputPath(), 1)
                 .toJavaRDD()
                 .filter(this::italianZone)
                 .mapToPair(this::toPair)
@@ -72,7 +54,7 @@ public class SecondQueryRDDZipped implements Query {
                 .sortByKey(new SecondFieldComparator(false))
                 .zipWithIndex()
                 .filter(x -> x._2() < 5);
-        if (save) {
+        if (shouldSave()) {
             save(averages.sortByKey(new IntPairComparator()), ciAsc, ciDesc, cfeAsc, cfeDesc);
         } else {
             collect(averages, ciAsc, ciDesc, cfeAsc, cfeDesc);
@@ -123,7 +105,7 @@ public class SecondQueryRDDZipped implements Query {
     }
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
-        result.map(this::toCsv).saveAsTextFile(resultsPath + "/plots.csv");
+        result.map(this::toCsv).saveAsTextFile(outputPath + "/plots.csv");
         result.foreachPartition(partition -> {
             try (var client = factory.create()) {
                 var writer = client.getWriteApiBlocking();
@@ -148,16 +130,12 @@ public class SecondQueryRDDZipped implements Query {
                 .time(getTime(key), WritePrecision.MS);
     }
 
-    private String getAppName() {
-        return appName;
-    }
-
     private Instant getTime(Tuple2<Integer, Integer> key) {
         return TimeUtils.fromYearAndMonth(key._1(), key._2());
     }
 
     private void save(JavaPairRDD<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> pairs, String fileName) {
-        pairs.map(this::toCsv2).saveAsTextFile(resultsPath + "/" + fileName + ".csv");
+        pairs.map(this::toCsv2).saveAsTextFile(outputPath + "/" + fileName + ".csv");
     }
 
     private String toCsv2(Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Integer, Integer>>, Long> r) {
@@ -170,6 +148,6 @@ public class SecondQueryRDDZipped implements Query {
         var c2 = ciDesc.count();
         var c3 = cfeAsc.count();
         var c4 = cfeDesc.count();
-        spark.logWarning(() -> String.format("averages count=%d, c1=%d, c2=%d, c3=%d, c4=%d%n", averages.count(), c1, c2, c3, c4));
+        getSparkSession().logWarning(() -> String.format("averages count=%d, c1=%d, c2=%d, c3=%d, c4=%d%n", averages.count(), c1, c2, c3, c4));
     }
 }

@@ -18,36 +18,21 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SecondQueryRDD implements Query {
+public class SecondQueryRDD extends AbstractQuery {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
-    private final String resultsPath;
+    private final String outputPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-    public SecondQueryRDD(SparkSession spark,
-            String datasetPath,
-            String resultsPath,
-            InfluxDbWriterFactory factory,
-            boolean save) {
-        this.spark = spark;
-        appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    public SecondQueryRDD(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.outputPath = outputPath;
         this.factory = factory;
-        this.save = save;
     }
 
-    @Override
-    public void close() {
-        spark.stop();
-    }
 
     @Override
     public void submit() {
-        var averages = spark.sparkContext().textFile(datasetPath, 1)
+        var averages = getSparkSession().sparkContext().textFile(getInputPath(), 1)
                 .toJavaRDD()
                 .filter(this::italianZone)
                 .mapToPair(this::getKVPair)
@@ -59,11 +44,11 @@ public class SecondQueryRDD implements Query {
         tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(true)));
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(false)));
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(true)));
-        if (save) {
+        if (shouldSave()) {
             save(averages);
             save(tops);
         } else {
-            spark.logWarning(() -> String.format("averages count=%d%n", tops.size()));
+            getSparkSession().logWarning(() -> String.format("averages count=%d%n", tops.size()));
         }
     }
 
@@ -94,7 +79,7 @@ public class SecondQueryRDD implements Query {
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
         var csv = result.map(this::toCsv);
-        csv.saveAsTextFile(resultsPath + "-plots.csv");
+        csv.saveAsTextFile(outputPath + "-plots.csv");
         result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
@@ -108,19 +93,15 @@ public class SecondQueryRDD implements Query {
                 .time(getTime(key), WritePrecision.MS);
     }
 
-    private String getAppName() {
-        return appName;
-    }
-
     private Instant getTime(Tuple2<Integer, Integer> key) {
         return TimeUtils.fromYearAndMonth(key._1(), key._2());
     }
 
     private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
-        try (var jsc = new JavaSparkContext(spark.sparkContext())) {
+        try (var jsc = new JavaSparkContext(getSparkSession().sparkContext())) {
             var csv = jsc.parallelize(tops)
                     .map(this::toCsv);
-            csv.saveAsTextFile(resultsPath + "-pairs.csv");
+            csv.saveAsTextFile(outputPath + "-pairs.csv");
         }
     }
 

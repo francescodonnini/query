@@ -15,27 +15,15 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ThirdQueryRDD implements Query {
+public class ThirdQueryRDD extends AbstractQuery {
     private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern(CsvField.DATETIME_FORMAT);
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
-    private final String resultsPath;
+    private final String outputPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-    public ThirdQueryRDD(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
-        this.spark = spark;
-        appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    public ThirdQueryRDD(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.outputPath = outputPath;
         this.factory = factory;
-        this.save = save;
-    }
-
-    @Override
-    public void close() {
-        spark.stop();
     }
 
     /**
@@ -49,8 +37,8 @@ public class ThirdQueryRDD implements Query {
      */
     @Override
     public void submit() {
-        var lines = spark.sparkContext()
-                .textFile(datasetPath, 1)
+        var lines = getSparkSession().sparkContext()
+                .textFile(getInputPath(), 1)
                 .toJavaRDD();
         var averages = lines.mapToPair(this::getPairWithOnes)
                 .reduceByKey(Operators::sum3)
@@ -63,7 +51,7 @@ public class ThirdQueryRDD implements Query {
                 .groupByKey()
                 .mapValues(this::toSortedList)
                 .mapValues(this::getQuantiles);
-        if (save) {
+        if (shouldSave()) {
             save(averages, ciQuantiles, cfeQuantiles);
         } else {
             collect(averages, cfeQuantiles, ciQuantiles);
@@ -74,7 +62,7 @@ public class ThirdQueryRDD implements Query {
         var list1 = averages.collect();
         var list2 = ciQuantiles.collect();
         var list3 = cfeQuantiles.collect();
-        spark.logWarning(() -> String.format("#averages = %d, #ciQuantiles = %d, #cfeQuantiles=%d", list1.size(), list2.size(), list3.size()));
+        getSparkSession().logWarning(() -> String.format("#averages = %d, #ciQuantiles = %d, #cfeQuantiles=%d", list1.size(), list2.size(), list3.size()));
     }
 
     private Tuple2<Tuple2<Integer, Integer>, Tuple3<Double, Double, Integer>> getPairWithOnes(String line) {
@@ -152,7 +140,7 @@ public class ThirdQueryRDD implements Query {
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> quantiles, String fileName) {
         quantiles.map(this::quantileToCsv)
-                .saveAsTextFile(resultsPath + fileName);
+                .saveAsTextFile(outputPath + fileName);
     }
 
     private String quantileToCsv(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Double>> x) {
@@ -161,7 +149,7 @@ public class ThirdQueryRDD implements Query {
 
     private void save(JavaRDD<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> averages) {
         averages.map(this::toCsv)
-                .saveAsTextFile(resultsPath + "/averages.csv");
+                .saveAsTextFile(outputPath + "/averages.csv");
         averages.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
@@ -180,10 +168,6 @@ public class ThirdQueryRDD implements Query {
                 .addField("avgCfe", avg._2()._2())
                 .addTag("app", getAppName())
                 .time(getTime(avg._1()), WritePrecision.MS);
-    }
-
-    private String getAppName() {
-        return appName;
     }
 
     private Instant getTime(Tuple2<Integer, Integer> yearDayOfYear) {

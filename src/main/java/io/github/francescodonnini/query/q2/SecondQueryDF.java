@@ -3,10 +3,7 @@ package io.github.francescodonnini.query.q2;
 import com.influxdb.client.domain.WritePrecision;
 import com.influxdb.client.write.Point;
 import io.github.francescodonnini.data.ParquetField;
-import io.github.francescodonnini.query.InfluxDbUtils;
-import io.github.francescodonnini.query.InfluxDbWriterFactory;
-import io.github.francescodonnini.query.Query;
-import io.github.francescodonnini.query.TimeUtils;
+import io.github.francescodonnini.query.*;
 import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.Column;
 import org.apache.spark.sql.Dataset;
@@ -17,7 +14,7 @@ import java.time.Instant;
 
 import static org.apache.spark.sql.functions.*;
 
-public class SecondQueryDF implements Query {
+public class SecondQueryDF extends AbstractQuery {
     private static final String YEAR_MONTH_COL_NAME = "yearMonth";
     private static final int    YEAR_MONTH_COL_INDEX = 0;
     private static final String AVG_CARBON_INTENSITY_COL_NAME = "avgCarbonIntensity";
@@ -25,30 +22,19 @@ public class SecondQueryDF implements Query {
     private static final String AVG_CFE_PERCENTAGE_COL_NAME = "avgCfePercentage";
     private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 2;
 
-    private final SparkSession spark;
-    private final String appName;
-    private final String datasetPath;
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
-    private final boolean save;
 
-    public SecondQueryDF(SparkSession spark, String datasetPath, String resultsPath, InfluxDbWriterFactory factory, boolean save) {
-        this.spark = spark;
-        appName = spark.sparkContext().appName();
-        this.datasetPath = datasetPath;
-        this.resultsPath = resultsPath;
+    public SecondQueryDF(SparkSession spark, String inputPath, boolean save, String outputPath, InfluxDbWriterFactory factory) {
+        super(spark, inputPath, save);
+        this.resultsPath = outputPath;
         this.factory = factory;
-        this.save = save;
     }
 
-    @Override
-    public void close() {
-        spark.stop();
-    }
 
     @Override
     public void submit() {
-        var averages = spark.read().parquet(datasetPath)
+        var averages = getSparkSession().read().parquet(getInputPath())
                 .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
                 .select(col(YEAR_MONTH_COL_NAME),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
@@ -73,7 +59,7 @@ public class SecondQueryDF implements Query {
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
                 .unionByName(cfeAsc);
-        if (save) {
+        if (shouldSave()) {
             save(averages, sortedPairs);
         } else {
             collect(averages, sortedPairs);
@@ -108,10 +94,6 @@ public class SecondQueryDF implements Query {
                 .time(getTime(row), WritePrecision.MS);
     }
 
-    private String getAppName() {
-        return appName;
-    }
-
     private Instant getTime(Row row) {
         return TimeUtils.fromYearAndMonth(row.getString(YEAR_MONTH_COL_INDEX));
     }
@@ -119,6 +101,6 @@ public class SecondQueryDF implements Query {
     private void collect(Dataset<Row> averages, Dataset<Row> sortedPairs) {
         var avgList = averages.collectAsList();
         var pairList = sortedPairs.collectAsList();
-        spark.logWarning(() -> String.format("#averageList = %d, #sortedPairs = %d%n", avgList.size(), pairList.size()));
+        getSparkSession().logWarning(() -> String.format("#averageList = %d, #sortedPairs = %d%n", avgList.size(), pairList.size()));
     }
 }
