@@ -21,6 +21,7 @@ import static org.apache.spark.sql.functions.to_timestamp;
 public class SecondQuerySQL extends AbstractQuery {
     private static final String YEAR_MONTH_COL_NAME = "yearMonth";
     private static final int    YEAR_MONTH_COL_INDEX = 0;
+    private static final String COUNTRY_COL_NAME = "country";
     private static final String AVG_CARBON_INTENSITY_COL_NAME = "avgCarbonIntensity";
     private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 1;
     private static final String AVG_CFE_PERCENTAGE_COL_NAME = "avgCfePercentage";
@@ -69,23 +70,36 @@ public class SecondQuerySQL extends AbstractQuery {
                 + selectExpression() + "\n"
                 + "FROM " + table + "\n"
                 + "WHERE " + eq(ParquetField.ZONE_ID, "IT") + "\n"
-                + "GROUP BY " + YEAR_MONTH_COL_NAME + "\n"
+                + "GROUP BY " + groupByExpression() + "\n"
                 + "ORDER BY " + YEAR_MONTH_COL_NAME + "\n";
     }
 
     private String selectExpression() {
         return String.join(",",
                 YEAR_MONTH_COL_NAME,
+                column(ParquetField.ZONE_ID, COUNTRY_COL_NAME),
                 avg(ParquetField.CARBON_INTENSITY_DIRECT, AVG_CARBON_INTENSITY_COL_NAME),
                 avg(ParquetField.CFE_PERCENTAGE, AVG_CFE_PERCENTAGE_COL_NAME));
     }
 
-    private String avg(ParquetField col, String alias) {
-        return String.format("AVG(%s) AS %s", col.getName(), alias);
+    private static String column(ParquetField col, String alias) {
+        return column(col.getName(), alias);
     }
 
-    private String eq(ParquetField col, String value) {
+    private static String avg(ParquetField col, String alias) {
+        return column(String.format("AVG(%s)", col.getName()), alias);
+    }
+
+    private static String column(String col, String alias) {
+        return col + " AS " + alias;
+    }
+
+    private static String eq(ParquetField col, String value) {
         return String.format("%s = '%s'", col.getName(), value);
+    }
+
+    private static String groupByExpression() {
+        return String.join(",", YEAR_MONTH_COL_NAME, COUNTRY_COL_NAME);
     }
 
     private String getTopBy(String table, String colName, boolean asc, int limit) {
