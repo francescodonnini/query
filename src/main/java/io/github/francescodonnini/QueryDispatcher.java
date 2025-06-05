@@ -12,7 +12,6 @@ import io.github.francescodonnini.query.q1.FirstQueryRDD;
 import io.github.francescodonnini.query.q2.SecondQueryDF;
 import io.github.francescodonnini.query.q2.SecondQueryRDD;
 import io.github.francescodonnini.query.q2.SecondQueryRDDZipped;
-import io.github.francescodonnini.query.q3.ThirdQueryDF;
 import io.github.francescodonnini.query.q3.ThirdQueryRDD;
 import picocli.CommandLine;
 
@@ -54,14 +53,13 @@ public class QueryDispatcher {
         var tag = conf.getString("SPARK_APP_NAME");
         logger.log(Level.INFO, () -> String.format("timeQuery appName=%s, #runs=%d", tag, time.get()));
         var factory = getInfluxDbFactory(conf);
-        try (var influx = factory.create()) {
+        try (var influx = factory.create();
+             var query = createQuery(conf, command)) {
             var writer = influx.getWriteApiBlocking();
             var points = new ArrayList<Point>();
             for (var i = 0; i < time.get(); ++i) {
                 var start = Instant.now();
-                try (var query = createQuery(conf, command)) {
-                    query.submit();
-                }
+                query.submit();
                 var duration = Duration.between(start, Instant.now());
                 points.add(Point.measurement("time")
                         .addField("duration", duration.toMillis())

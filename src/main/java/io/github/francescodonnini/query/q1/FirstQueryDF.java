@@ -9,7 +9,6 @@ import io.github.francescodonnini.query.Query;
 import io.github.francescodonnini.query.TimeUtils;
 import org.apache.spark.api.java.function.ForeachPartitionFunction;
 import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Encoders;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
@@ -18,44 +17,6 @@ import java.time.Instant;
 import static org.apache.spark.sql.functions.*;
 
 public class FirstQueryDF implements Query {
-    private static class Bean {
-        private String country;
-        private int year;
-        private double carbonIntensity;
-        private double cfePercentage;
-
-        public double getCarbonIntensity() {
-            return carbonIntensity;
-        }
-
-        public void setCarbonIntensity(double carbonIntensity) {
-            this.carbonIntensity = carbonIntensity;
-        }
-
-        public double getCfePercentage() {
-            return cfePercentage;
-        }
-
-        public void setCfePercentage(double cfePercentage) {
-            this.cfePercentage = cfePercentage;
-        }
-
-        public String getCountry() {
-            return country;
-        }
-
-        public void setCountry(String country) {
-            this.country = country;
-        }
-
-        public int getYear() {
-            return year;
-        }
-
-        public void setYear(int year) {
-            this.year = year;
-        }
-    }
     private static final String COUNTRY_COL_NAME = "country";
     private static final int COUNTRY_COL_INDEX = 0;
     private static final String YEAR_COL_NAME = "year";
@@ -91,7 +52,6 @@ public class FirstQueryDF implements Query {
                      col(ParquetField.ZONE_ID.getName()).as(COUNTRY_COL_NAME),
                      col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(carbonIntensityCol),
                      col(ParquetField.CFE_PERCENTAGE.getName()).as(cfePercentageCol))
-             .as(Encoders.bean(Bean.class))
              .groupBy(col(COUNTRY_COL_NAME),
                       col(YEAR_COL_NAME))
              .agg(avg(col(carbonIntensityCol)),
