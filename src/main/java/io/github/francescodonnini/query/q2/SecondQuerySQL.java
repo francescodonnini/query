@@ -39,6 +39,7 @@ public class SecondQuerySQL extends AbstractQuery {
         var dataFrame = getSparkSession().read().parquet(getInputPath())
                 .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()));
         final var tableName = "energyData";
+        dataFrame.createOrReplaceGlobalTempView(tableName);
         var result = dataFrame.sqlContext()
                 .sql(getSqlQuery(tableName));
         var ciDesc = result.sqlContext()
