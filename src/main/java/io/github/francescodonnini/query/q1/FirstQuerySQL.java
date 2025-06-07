@@ -49,8 +49,8 @@ public class FirstQuerySQL extends AbstractQuery {
         dataFrame.createOrReplaceTempView(tableName);
         String query = "SELECT " +
                 selectExpression(
-                        YEAR_COL_NAME,
                         column(ParquetField.ZONE_ID, COUNTRY_COL_NAME),
+                        YEAR_COL_NAME,
                         agg(ParquetField.CARBON_INTENSITY_DIRECT, carbonIntensityCol),
                         agg(ParquetField.CFE_PERCENTAGE, cfePercentageCol)) + "\n" +
                 "FROM " + tableName + "\n" +
