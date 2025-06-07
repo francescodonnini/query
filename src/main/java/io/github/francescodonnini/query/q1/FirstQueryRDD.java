@@ -127,7 +127,26 @@ public class FirstQueryRDD extends AbstractQuery {
 
     private String toCsv(
             Tuple2<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> x) {
-        return x._1()._1() + "," + x._1()._2() + "," + x._2()._1()._1()._1() + "," + x._2()._1()._1()._2() + "," + x._2()._2()._1() + "," + x._2()._2()._2();
+        return key(x._1()) + "," + value(x._2());
+    }
+
+    private static String key(Tuple2<String, Integer> key) {
+        return key._1() + "," + key._2();
+    }
+
+    private static String value(Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>> val) {
+        var avg = val._1()._1();
+        var min = val._1()._2();
+        var max = val._2();
+        return carbonIntensity(avg, min, max) + "," + cfePercentage(avg, min, max);
+    }
+
+    private static String carbonIntensity(Tuple2<Double, Double> avg, Tuple2<Double, Double> min, Tuple2<Double, Double> max) {
+        return avg._1() + "," + min._1() + "," + max._1();
+    }
+
+    private static String cfePercentage(Tuple2<Double, Double> avg, Tuple2<Double, Double> min, Tuple2<Double, Double> max) {
+        return avg._2() + "," + min._2() + "," + max._2();
     }
 
     private void collect(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
