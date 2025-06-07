@@ -37,7 +37,8 @@ public class SecondQueryRDDZipped extends AbstractQuery {
                 .mapToPair(this::toPair)
                 .reduceByKey(Operators::sum3)
                 .mapToPair(Operators::average3);
-        var swappedKeyValuePairs = averages.mapToPair(Tuple2::swap);
+        var swappedKeyValuePairs = averages
+                .mapToPair(Tuple2::swap);
         var ciAsc = swappedKeyValuePairs
                 .sortByKey(new FirstFieldComparator(true))
                 .zipWithIndex()

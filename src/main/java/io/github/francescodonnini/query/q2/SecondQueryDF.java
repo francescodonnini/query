@@ -35,7 +35,7 @@ public class SecondQueryDF extends AbstractQuery {
     @Override
     public void submit() {
         var averages = getSparkSession().read().parquet(getInputPath())
-                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()))
+                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth())
                 .select(col(YEAR_MONTH_COL_NAME),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
                         col(ParquetField.CFE_PERCENTAGE.getName()))
@@ -67,8 +67,8 @@ public class SecondQueryDF extends AbstractQuery {
 
     }
 
-    private Column getYearMonth(String colName) {
-        return date_format(to_timestamp(col(colName), ParquetField.DATETIME_FORMAT), "yyyy-MM");
+    private Column getYearMonth() {
+        return date_format(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
