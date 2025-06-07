@@ -17,10 +17,10 @@ import java.time.Instant;
 import static org.apache.spark.sql.functions.*;
 
 public class FirstQuerySQL extends AbstractQuery {
-    private static final String YEAR_COL_NAME = "year";
-    private static final int YEAR_COL_INDEX = 0;
     private static final String COUNTRY_COL_NAME = "country";
-    private static final int COUNTRY_COL_INDEX = 1;
+    private static final int COUNTRY_COL_INDEX = 0;
+    private static final String YEAR_COL_NAME = "year";
+    private static final int YEAR_COL_INDEX = 1;
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
 
@@ -43,16 +43,14 @@ public class FirstQuerySQL extends AbstractQuery {
     }
 
     private Dataset<Row> executeQuery(Dataset<Row> dataFrame) {
-        final var carbonIntensityCol = "CarbonIntensity";
-        final var cfePercentageCol = "CfePercentage";
         final var tableName = "energyData";
         dataFrame.createOrReplaceTempView(tableName);
         String query = "SELECT " +
                 selectExpression(
-                        column(ParquetField.ZONE_ID, COUNTRY_COL_NAME),
+                        countryCol(),
                         YEAR_COL_NAME,
-                        agg(ParquetField.CARBON_INTENSITY_DIRECT, carbonIntensityCol),
-                        agg(ParquetField.CFE_PERCENTAGE, cfePercentageCol)) + "\n" +
+                        agg(ParquetField.CARBON_INTENSITY_DIRECT),
+                        agg(ParquetField.CFE_PERCENTAGE)) + "\n" +
                 "FROM " + tableName + "\n" +
                 "GROUP BY " + groupByExpression(YEAR_COL_NAME, COUNTRY_COL_NAME);
         return dataFrame.sqlContext().sql(query);
@@ -62,14 +60,14 @@ public class FirstQuerySQL extends AbstractQuery {
         return String.join(", ", columns);
     }
 
-    private static String column(ParquetField col, String alias) {
-        return col.getName() + " AS " + alias;
+    private static String countryCol() {
+        return ParquetField.ZONE_ID.getName() + " AS " + FirstQuerySQL.COUNTRY_COL_NAME;
     }
 
-    private static String agg(ParquetField col, String alias) {
-        return String.format("AVG(%s) AS avg%s, ", col.getName(), alias) +
-                String.format("MIN(%s) AS min%s, ", col.getName(), alias) +
-                String.format("MAX(%s) AS max%s", col.getName(), alias);
+    private static String agg(ParquetField col) {
+        return String.format("AVG(%s), ", col.getName()) +
+                String.format("MIN(%s), ", col.getName()) +
+                String.format("MAX(%s)", col.getName());
     }
 
     private static String groupByExpression(String... columns) {
