@@ -19,12 +19,9 @@ import static org.apache.spark.sql.functions.*;
 import static org.apache.spark.sql.functions.to_timestamp;
 
 public class SecondQuerySQL extends AbstractQuery {
-    private static final String YEAR_MONTH_COL_NAME = "yearMonth";
     private static final int    YEAR_MONTH_COL_INDEX = 0;
     private static final String COUNTRY_COL_NAME = "country";
-    private static final String AVG_CARBON_INTENSITY_COL_NAME = "avgCarbonIntensity";
     private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 2;
-    private static final String AVG_CFE_PERCENTAGE_COL_NAME = "avgCfePercentage";
     private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 3;
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
@@ -38,7 +35,7 @@ public class SecondQuerySQL extends AbstractQuery {
     @Override
     public void submit() {
         var dataFrame = getSparkSession().read().parquet(getInputPath())
-                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth(ParquetField.DATETIME_UTC.getName()));
+                .withColumn(CsvPlotSchema.YEAR_MONTH, getYearMonth(ParquetField.DATETIME_UTC.getName()));
         final var tableName = "energyData";
         dataFrame.createOrReplaceTempView(tableName);
         var result = dataFrame.sqlContext()
@@ -46,13 +43,13 @@ public class SecondQuerySQL extends AbstractQuery {
         final var aggregatedTable = "aggregated";
         result.createOrReplaceTempView(aggregatedTable);
         var ciDesc = result.sqlContext()
-                .sql(getTopBy(AVG_CARBON_INTENSITY_COL_NAME, false));
+                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT, false));
         var ciAsc = result.sqlContext()
-                .sql(getTopBy(AVG_CARBON_INTENSITY_COL_NAME, true));
+                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT, true));
         var cfeDesc = result.sqlContext()
-                .sql(getTopBy(AVG_CFE_PERCENTAGE_COL_NAME, false));
+                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, false));
         var cfeAsc = result.sqlContext()
-                .sql(getTopBy(AVG_CFE_PERCENTAGE_COL_NAME, true));
+                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, true));
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
                 .unionByName(cfeAsc);
@@ -73,15 +70,15 @@ public class SecondQuerySQL extends AbstractQuery {
                 + "FROM " + "energyData" + "\n"
                 + "WHERE " + italianZone() + "\n"
                 + "GROUP BY " + groupByExpression() + "\n"
-                + "ORDER BY " + YEAR_MONTH_COL_NAME + "\n";
+                + "ORDER BY " + CsvPlotSchema.YEAR_MONTH + "\n";
     }
 
     private String selectExpression() {
         return String.join(",",
-                YEAR_MONTH_COL_NAME,
+                CsvPlotSchema.YEAR_MONTH,
                 countryColumn(),
-                avg(ParquetField.CARBON_INTENSITY_DIRECT, AVG_CARBON_INTENSITY_COL_NAME),
-                avg(ParquetField.CFE_PERCENTAGE, AVG_CFE_PERCENTAGE_COL_NAME));
+                avg(ParquetField.CARBON_INTENSITY_DIRECT, CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT),
+                avg(ParquetField.CFE_PERCENTAGE, CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE));
     }
 
     private static String countryColumn() {
@@ -101,7 +98,7 @@ public class SecondQuerySQL extends AbstractQuery {
     }
 
     private static String groupByExpression() {
-        return String.join(",", YEAR_MONTH_COL_NAME, COUNTRY_COL_NAME);
+        return String.join(",", CsvPlotSchema.YEAR_MONTH, COUNTRY_COL_NAME);
     }
 
     private String getTopBy(String colName, boolean asc) {
@@ -113,7 +110,8 @@ public class SecondQuerySQL extends AbstractQuery {
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
         save(averages);
-        averages.write()
+        averages.drop(COUNTRY_COL_NAME)
+                .write()
                 .option("header", true)
                 .csv(outputPath + "-plots.csv");
         sortedPairs

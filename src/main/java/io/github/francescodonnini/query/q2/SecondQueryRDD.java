@@ -103,7 +103,7 @@ public class SecondQueryRDD extends AbstractQuery {
 
     private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
         try (var jsc = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext())) {
-            var csv = jsc.parallelize(tops)
+            var csv = jsc.parallelizePairs(tops, 1)
                     .map(this::toCsv);
             csv.saveAsTextFile(outputPath + "-pairs.csv");
         }

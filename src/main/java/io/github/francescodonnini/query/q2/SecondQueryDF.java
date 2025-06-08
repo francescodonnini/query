@@ -15,11 +15,8 @@ import java.time.Instant;
 import static org.apache.spark.sql.functions.*;
 
 public class SecondQueryDF extends AbstractQuery {
-    private static final String YEAR_MONTH_COL_NAME = "yearMonth";
     private static final int    YEAR_MONTH_COL_INDEX = 0;
-    private static final String AVG_CARBON_INTENSITY_COL_NAME = "avgCarbonIntensity";
     private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 1;
-    private static final String AVG_CFE_PERCENTAGE_COL_NAME = "avgCfePercentage";
     private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 2;
 
     private final String resultsPath;
@@ -35,26 +32,26 @@ public class SecondQueryDF extends AbstractQuery {
     @Override
     public void submit() {
         var averages = getSparkSession().read().parquet(getInputPath())
-                .withColumn(YEAR_MONTH_COL_NAME, getYearMonth())
-                .select(col(YEAR_MONTH_COL_NAME),
-                        col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
-                        col(ParquetField.CFE_PERCENTAGE.getName()))
+                .withColumn(CsvPlotSchema.YEAR_MONTH, getYearMonth())
+                .select(col(CsvPlotSchema.YEAR_MONTH),
+                        col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT),
+                        col(ParquetField.CFE_PERCENTAGE.getName())).as(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)
                 .where(col(ParquetField.ZONE_ID.getName()).equalTo("IT"))
-                .groupBy(col(YEAR_MONTH_COL_NAME))
-                .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(AVG_CARBON_INTENSITY_COL_NAME),
-                     avg(ParquetField.CFE_PERCENTAGE.getName()).as(AVG_CFE_PERCENTAGE_COL_NAME))
-                .orderBy(col(YEAR_MONTH_COL_NAME));
+                .groupBy(col(CsvPlotSchema.YEAR_MONTH))
+                .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT),
+                     avg(ParquetField.CFE_PERCENTAGE.getName()).as(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE))
+                .orderBy(col(CsvPlotSchema.YEAR_MONTH));
         var ciDesc = averages
-                .orderBy(col(AVG_CARBON_INTENSITY_COL_NAME).desc())
+                .orderBy(col(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT).desc())
                 .limit(5);
         var ciAsc = averages
-                .orderBy(col(AVG_CARBON_INTENSITY_COL_NAME).asc())
+                .orderBy(col(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT).asc())
                 .limit(5);
         var cfeDesc = averages
-                .orderBy(col(AVG_CFE_PERCENTAGE_COL_NAME).desc())
+                .orderBy(col(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE).desc())
                 .limit(5);
         var cfeAsc = averages
-                .orderBy(col(AVG_CFE_PERCENTAGE_COL_NAME).asc())
+                .orderBy(col(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE).asc())
                 .limit(5);
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
