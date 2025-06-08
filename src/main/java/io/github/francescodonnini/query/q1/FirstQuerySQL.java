@@ -17,9 +17,7 @@ import java.time.Instant;
 import static org.apache.spark.sql.functions.*;
 
 public class FirstQuerySQL extends AbstractQuery {
-    private static final String COUNTRY_COL_NAME = "country";
     private static final int COUNTRY_COL_INDEX = 0;
-    private static final String YEAR_COL_NAME = "year";
     private static final int YEAR_COL_INDEX = 1;
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
@@ -33,7 +31,7 @@ public class FirstQuerySQL extends AbstractQuery {
     @Override
     public void submit() {
         final var dataFrame = getSparkSession().read().parquet(getInputPath())
-                .withColumn(YEAR_COL_NAME, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)));
+                .withColumn(CommonOutputSchema.YEAR, year(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT)));
         final var result = executeQuery(dataFrame);
         if (shouldSave()) {
             save(result);
@@ -48,11 +46,11 @@ public class FirstQuerySQL extends AbstractQuery {
         String query = "SELECT " +
                 selectExpression(
                         countryCol(),
-                        YEAR_COL_NAME,
-                        agg(ParquetField.CARBON_INTENSITY_DIRECT),
-                        agg(ParquetField.CFE_PERCENTAGE)) + "\n" +
+                        CommonOutputSchema.YEAR,
+                        aggCI(),
+                        aggCFE()) + "\n" +
                 "FROM " + tableName + "\n" +
-                "GROUP BY " + groupByExpression(YEAR_COL_NAME, COUNTRY_COL_NAME);
+                "GROUP BY " + groupByExpression(CommonOutputSchema.YEAR, CommonOutputSchema.COUNTRY);
         return dataFrame.sqlContext().sql(query);
     }
 
@@ -61,13 +59,19 @@ public class FirstQuerySQL extends AbstractQuery {
     }
 
     private static String countryCol() {
-        return ParquetField.ZONE_ID.getName() + " AS " + FirstQuerySQL.COUNTRY_COL_NAME;
+        return ParquetField.ZONE_ID.getName() + " AS " + CommonOutputSchema.COUNTRY;
     }
 
-    private static String agg(ParquetField col) {
-        return String.format("AVG(%s), ", col.getName()) +
-                String.format("MIN(%s), ", col.getName()) +
-                String.format("MAX(%s)", col.getName());
+    private static String aggCI() {
+        return String.format("AVG(%s) AS %s, ", ParquetField.CARBON_INTENSITY_DIRECT.getName(), CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT) +
+                String.format("MIN(%s) AS %s, ", ParquetField.CARBON_INTENSITY_DIRECT.getName(), CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT) +
+                String.format("MAX(%s) AS %s", ParquetField.CARBON_INTENSITY_DIRECT.getName(), CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT);
+    }
+
+    private static String aggCFE() {
+        return String.format("AVG(%s) AS %s, ", ParquetField.CFE_PERCENTAGE.getName(), CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE) +
+                String.format("MIN(%s) AS %s, ", ParquetField.CFE_PERCENTAGE.getName(), CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE) +
+                String.format("MAX(%s) AS %s", ParquetField.CFE_PERCENTAGE.getName(), CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE);
     }
 
     private static String groupByExpression(String... columns) {
@@ -83,7 +87,7 @@ public class FirstQuerySQL extends AbstractQuery {
 
     private Point createPoint(Row row) {
         return com.influxdb.client.write.Point.measurement("result")
-                .addTag(COUNTRY_COL_NAME, row.getString(COUNTRY_COL_INDEX))
+                .addTag(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
                 .addField("avgCi", row.getDouble(2))
                 .addField("minCi", row.getDouble(3))
                 .addField("maxCi", row.getDouble(4))

@@ -35,7 +35,7 @@ public class SecondQuerySQL extends AbstractQuery {
     @Override
     public void submit() {
         var dataFrame = getSparkSession().read().parquet(getInputPath())
-                .withColumn(CsvPlotSchema.YEAR_MONTH, getYearMonth(ParquetField.DATETIME_UTC.getName()));
+                .withColumn(CommonOutputSchema.YEAR_MONTH, getYearMonth(ParquetField.DATETIME_UTC.getName()));
         final var tableName = "energyData";
         dataFrame.createOrReplaceTempView(tableName);
         var result = dataFrame.sqlContext()
@@ -43,13 +43,13 @@ public class SecondQuerySQL extends AbstractQuery {
         final var aggregatedTable = "aggregated";
         result.createOrReplaceTempView(aggregatedTable);
         var ciDesc = result.sqlContext()
-                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT, false));
+                .sql(getTopBy(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT, false));
         var ciAsc = result.sqlContext()
-                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT, true));
+                .sql(getTopBy(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT, true));
         var cfeDesc = result.sqlContext()
-                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, false));
+                .sql(getTopBy(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, false));
         var cfeAsc = result.sqlContext()
-                .sql(getTopBy(CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, true));
+                .sql(getTopBy(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, true));
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
                 .unionByName(cfeAsc);
@@ -70,15 +70,15 @@ public class SecondQuerySQL extends AbstractQuery {
                 + "FROM " + "energyData" + "\n"
                 + "WHERE " + italianZone() + "\n"
                 + "GROUP BY " + groupByExpression() + "\n"
-                + "ORDER BY " + CsvPlotSchema.YEAR_MONTH + "\n";
+                + "ORDER BY " + CommonOutputSchema.YEAR_MONTH + "\n";
     }
 
     private String selectExpression() {
         return String.join(",",
-                CsvPlotSchema.YEAR_MONTH,
+                CommonOutputSchema.YEAR_MONTH,
                 countryColumn(),
-                avg(ParquetField.CARBON_INTENSITY_DIRECT, CsvPlotSchema.AVG_CARBON_INTENSITY_DIRECT),
-                avg(ParquetField.CFE_PERCENTAGE, CsvPlotSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE));
+                avg(ParquetField.CARBON_INTENSITY_DIRECT, CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
+                avg(ParquetField.CFE_PERCENTAGE, CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE));
     }
 
     private static String countryColumn() {
@@ -98,7 +98,7 @@ public class SecondQuerySQL extends AbstractQuery {
     }
 
     private static String groupByExpression() {
-        return String.join(",", CsvPlotSchema.YEAR_MONTH, COUNTRY_COL_NAME);
+        return String.join(",", CommonOutputSchema.YEAR_MONTH, COUNTRY_COL_NAME);
     }
 
     private String getTopBy(String colName, boolean asc) {
