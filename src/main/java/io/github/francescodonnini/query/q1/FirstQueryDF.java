@@ -57,7 +57,7 @@ public class FirstQueryDF extends AbstractQuery {
 
     private Point from(Row row) {
         return Point.measurement("result")
-                .addTag(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
+                .addField(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
                 .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(2))
                 .addField(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(3))
                 .addField(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(4))
