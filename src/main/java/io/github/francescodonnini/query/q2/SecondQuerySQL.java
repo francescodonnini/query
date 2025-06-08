@@ -42,17 +42,17 @@ public class SecondQuerySQL extends AbstractQuery {
         final var tableName = "energyData";
         dataFrame.createOrReplaceTempView(tableName);
         var result = dataFrame.sqlContext()
-                .sql(getSqlQuery(tableName));
+                .sql(getSqlQuery());
         final var aggregatedTable = "aggregated";
         result.createOrReplaceTempView(aggregatedTable);
         var ciDesc = result.sqlContext()
-                .sql(getTopBy(aggregatedTable, AVG_CARBON_INTENSITY_COL_NAME, false, 5));
+                .sql(getTopBy(AVG_CARBON_INTENSITY_COL_NAME, false));
         var ciAsc = result.sqlContext()
-                .sql(getTopBy(aggregatedTable, AVG_CARBON_INTENSITY_COL_NAME, true, 5));
+                .sql(getTopBy(AVG_CARBON_INTENSITY_COL_NAME, true));
         var cfeDesc = result.sqlContext()
-                .sql(getTopBy(aggregatedTable, AVG_CFE_PERCENTAGE_COL_NAME, false, 5));
+                .sql(getTopBy(AVG_CFE_PERCENTAGE_COL_NAME, false));
         var cfeAsc = result.sqlContext()
-                .sql(getTopBy(aggregatedTable, AVG_CFE_PERCENTAGE_COL_NAME, true, 5));
+                .sql(getTopBy(AVG_CFE_PERCENTAGE_COL_NAME, true));
         var sortedPairs = ciDesc.unionByName(ciAsc)
                 .unionByName(cfeDesc)
                 .unionByName(cfeAsc);
@@ -67,11 +67,11 @@ public class SecondQuerySQL extends AbstractQuery {
         return date_format(to_timestamp(col(colName), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
-    private String getSqlQuery(String table) {
+    private String getSqlQuery() {
         return "SELECT "
                 + selectExpression() + "\n"
-                + "FROM " + table + "\n"
-                + "WHERE " + eq(ParquetField.ZONE_ID, "IT") + "\n"
+                + "FROM " + "energyData" + "\n"
+                + "WHERE " + italianZone() + "\n"
                 + "GROUP BY " + groupByExpression() + "\n"
                 + "ORDER BY " + YEAR_MONTH_COL_NAME + "\n";
     }
@@ -79,36 +79,36 @@ public class SecondQuerySQL extends AbstractQuery {
     private String selectExpression() {
         return String.join(",",
                 YEAR_MONTH_COL_NAME,
-                column(ParquetField.ZONE_ID, COUNTRY_COL_NAME),
+                countryColumn(),
                 avg(ParquetField.CARBON_INTENSITY_DIRECT, AVG_CARBON_INTENSITY_COL_NAME),
                 avg(ParquetField.CFE_PERCENTAGE, AVG_CFE_PERCENTAGE_COL_NAME));
     }
 
-    private static String column(ParquetField col, String alias) {
-        return column(col.getName(), alias);
+    private static String countryColumn() {
+        return countryColumn(ParquetField.ZONE_ID.getName(), SecondQuerySQL.COUNTRY_COL_NAME);
     }
 
     private static String avg(ParquetField col, String alias) {
-        return column(String.format("AVG(%s)", col.getName()), alias);
+        return countryColumn(String.format("AVG(%s)", col.getName()), alias);
     }
 
-    private static String column(String col, String alias) {
+    private static String countryColumn(String col, String alias) {
         return col + " AS " + alias;
     }
 
-    private static String eq(ParquetField col, String value) {
-        return String.format("%s = '%s'", col.getName(), value);
+    private static String italianZone() {
+        return String.format("%s = '%s'", ParquetField.ZONE_ID.getName(), "IT");
     }
 
     private static String groupByExpression() {
         return String.join(",", YEAR_MONTH_COL_NAME, COUNTRY_COL_NAME);
     }
 
-    private String getTopBy(String table, String colName, boolean asc, int limit) {
+    private String getTopBy(String colName, boolean asc) {
         var direction = asc ? "ASC" : "DESC";
-        return "SELECT * FROM " + table + "\n"
+        return "SELECT * FROM " + "aggregated" + "\n"
                 + "ORDER BY " + colName + " " + direction + "\n"
-                + "LIMIT " + limit;
+                + "LIMIT " + 5;
     }
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
