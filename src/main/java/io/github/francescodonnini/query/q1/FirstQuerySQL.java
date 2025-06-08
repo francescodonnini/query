@@ -87,13 +87,13 @@ public class FirstQuerySQL extends AbstractQuery {
 
     private Point createPoint(Row row) {
         return com.influxdb.client.write.Point.measurement("result")
-                .addField(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
                 .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(2))
                 .addField(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(3))
                 .addField(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(4))
                 .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(5))
                 .addField(CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(6))
                 .addField(CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(7))
+                .addTag(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
                 .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
     }
