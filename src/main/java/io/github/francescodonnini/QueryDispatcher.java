@@ -19,6 +19,8 @@ import picocli.CommandLine;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,7 +45,11 @@ public class QueryDispatcher {
     }
 
     private static String getAppName(Command command) {
-        return command.getQueryKind().name();
+        var now = DateTimeFormatter
+                .ofPattern("yyyy-MM-dd-HH_mm_ss")
+                .withZone(ZoneId.systemDefault())
+                .format(Instant.now());
+        return command.getQueryKind().name() + "-" + now;
     }
 
     private static void timeQuery(Conf conf, Command command) {
@@ -55,18 +61,19 @@ public class QueryDispatcher {
         var tag = conf.getString("SPARK_APP_NAME");
         logger.log(Level.INFO, () -> String.format("timeQuery appName=%s, #runs=%d", tag, time.get()));
         var factory = getInfluxDbFactory(conf);
-        try (var influx = factory.create();
-             var query = createQuery(conf, command)) {
+        try (var influx = factory.create()) {
             var writer = influx.getWriteApiBlocking();
             var points = new ArrayList<Point>();
             for (var i = 0; i < time.get(); ++i) {
-                var start = Instant.now();
-                query.submit();
-                var duration = Duration.between(start, Instant.now());
-                points.add(Point.measurement("time")
-                        .addField("duration", duration.toMillis())
-                        .addTag("app", tag)
-                        .time(start, WritePrecision.MS));
+                try (var query = createQuery(conf, command)) {
+                    var start = Instant.now();
+                    query.submit();
+                    var duration = Duration.between(start, Instant.now());
+                    points.add(Point.measurement("time")
+                            .addField("duration", duration.toMillis())
+                            .addTag("app", tag)
+                            .time(start, WritePrecision.MS));
+                }
             }
             writer.writePoints(points);
         } catch (Exception e) {
