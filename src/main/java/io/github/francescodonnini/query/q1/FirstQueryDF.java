@@ -35,12 +35,12 @@ public class FirstQueryDF extends AbstractQuery {
                      col(ParquetField.CFE_PERCENTAGE.getName()))
              .groupBy(col(CommonOutputSchema.COUNTRY),
                       col(CommonOutputSchema.YEAR))
-             .agg(avg(col(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT).as(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT)),
-                  min(col(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT)).as(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT),
-                  max(col(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT)).as(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT),
-                  avg(col(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)).as(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE) ,
-                  min(col(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)).as(CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE) ,
-                  max(col(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE))).as(CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE);
+             .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).alias(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
+                  min(ParquetField.CARBON_INTENSITY_DIRECT.getName()).alias(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT),
+                  max(ParquetField.CARBON_INTENSITY_DIRECT.getName()).alias(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT),
+                  avg(ParquetField.CFE_PERCENTAGE.getName()).alias(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE) ,
+                  min(ParquetField.CFE_PERCENTAGE.getName()).alias(CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE) ,
+                  max(ParquetField.CFE_PERCENTAGE.getName()).alias(CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE));
         if (shouldSave()) {
             save(df);
         } else {

@@ -38,8 +38,8 @@ public class SecondQueryDF extends AbstractQuery {
                         col(ParquetField.CFE_PERCENTAGE.getName())).as(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)
                 .where(col(ParquetField.ZONE_ID.getName()).equalTo("IT"))
                 .groupBy(col(CommonOutputSchema.YEAR_MONTH))
-                .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
-                     avg(ParquetField.CFE_PERCENTAGE.getName()).as(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE))
+                .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).alias(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
+                     avg(ParquetField.CFE_PERCENTAGE.getName()).alias(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE))
                 .orderBy(col(CommonOutputSchema.YEAR_MONTH));
         var ciDesc = averages
                 .orderBy(col(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT).desc())
