@@ -23,9 +23,9 @@ public class SecondQuerySQL extends AbstractQuery {
     private static final int    YEAR_MONTH_COL_INDEX = 0;
     private static final String COUNTRY_COL_NAME = "country";
     private static final String AVG_CARBON_INTENSITY_COL_NAME = "avgCarbonIntensity";
-    private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 1;
+    private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 2;
     private static final String AVG_CFE_PERCENTAGE_COL_NAME = "avgCfePercentage";
-    private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 2;
+    private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 3;
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
 
