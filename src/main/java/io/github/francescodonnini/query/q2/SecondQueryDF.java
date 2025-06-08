@@ -35,8 +35,8 @@ public class SecondQueryDF extends AbstractQuery {
                 .withColumn(CommonOutputSchema.YEAR_MONTH, getYearMonth())
                 .select(col(CommonOutputSchema.YEAR_MONTH),
                         col(ParquetField.ZONE_ID.getName()),
-                        col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
-                        col(ParquetField.CFE_PERCENTAGE.getName())).as(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)
+                        col(ParquetField.CARBON_INTENSITY_DIRECT.getName()),
+                        col(ParquetField.CFE_PERCENTAGE.getName()))
                 .where(col(ParquetField.ZONE_ID.getName()).equalTo("IT"))
                 .groupBy(col(CommonOutputSchema.YEAR_MONTH))
                 .agg(avg(ParquetField.CARBON_INTENSITY_DIRECT.getName()).alias(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
