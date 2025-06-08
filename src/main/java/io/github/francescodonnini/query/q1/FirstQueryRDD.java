@@ -113,15 +113,14 @@ public class FirstQueryRDD extends AbstractQuery {
         var max = val._1()._2();
         var min = val._2();
         return Point.measurement("result")
-                .addField("country", key._1())
-                .addField("avgCi", avg._1())
-                .addField("avgCfe", avg._2())
-                .addField("maxCi", max._1())
-                .addField("maxCfe", max._2())
-                .addField("minCi", min._1())
-                .addField("minCfe", min._2())
+                .addField(CommonOutputSchema.COUNTRY, key._1())
+                .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, avg._1())
+                .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, avg._2())
+                .addField(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT_SHORT, max._1())
+                .addField(CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, max._2())
+                .addField(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT_SHORT, min._1())
+                .addField(CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, min._2())
                 .addTag("app", getAppName())
-                .addTag("country", key._1())
                 .time(TimeUtils.fromYear(key._2()), WritePrecision.MS);
     }
 

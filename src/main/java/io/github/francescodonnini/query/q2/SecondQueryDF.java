@@ -15,9 +15,9 @@ import java.time.Instant;
 import static org.apache.spark.sql.functions.*;
 
 public class SecondQueryDF extends AbstractQuery {
-    private static final int    YEAR_MONTH_COL_INDEX = 0;
-    private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 1;
-    private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 2;
+    private static final int YEAR_MONTH_COL_INDEX = 0;
+    private static final int AVG_CARBON_INTENSITY_COL_INDEX = 1;
+    private static final int AVG_CFE_PERCENTAGE_COL_INDEX = 2;
 
     private final String resultsPath;
     private final InfluxDbWriterFactory factory;
@@ -34,6 +34,7 @@ public class SecondQueryDF extends AbstractQuery {
         var averages = getSparkSession().read().parquet(getInputPath())
                 .withColumn(CommonOutputSchema.YEAR_MONTH, getYearMonth())
                 .select(col(CommonOutputSchema.YEAR_MONTH),
+                        col(ParquetField.ZONE_ID.getName()),
                         col(ParquetField.CARBON_INTENSITY_DIRECT.getName()).as(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
                         col(ParquetField.CFE_PERCENTAGE.getName())).as(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE)
                 .where(col(ParquetField.ZONE_ID.getName()).equalTo("IT"))
@@ -70,7 +71,8 @@ public class SecondQueryDF extends AbstractQuery {
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
         saveToInfluxDB(averages);
-        averages.write()
+        averages.drop(ParquetField.ZONE_ID.getName())
+                .write()
                 .option("header", true)
                 .csv(resultsPath + "-plots.csv");
         sortedPairs
@@ -85,8 +87,8 @@ public class SecondQueryDF extends AbstractQuery {
 
     private Point from(Row row) {
         return Point.measurement("result")
-                .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
-                .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
+                .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
+                .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
                 .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
     }

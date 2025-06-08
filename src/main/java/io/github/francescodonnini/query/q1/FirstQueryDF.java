@@ -58,12 +58,12 @@ public class FirstQueryDF extends AbstractQuery {
     private Point from(Row row) {
         return Point.measurement("result")
                 .addTag(CommonOutputSchema.COUNTRY, row.getString(COUNTRY_COL_INDEX))
-                .addField("avgCi", row.getDouble(2))
-                .addField("minCi", row.getDouble(3))
-                .addField("maxCi", row.getDouble(4))
-                .addField("avgCfe", row.getDouble(5))
-                .addField("minCfe", row.getDouble(6))
-                .addField("maxCfe", row.getDouble(7))
+                .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(2))
+                .addField(CommonOutputSchema.MIN_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(3))
+                .addField(CommonOutputSchema.MAX_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(4))
+                .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(5))
+                .addField(CommonOutputSchema.MIN_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(6))
+                .addField(CommonOutputSchema.MAX_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(7))
                 .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
     }

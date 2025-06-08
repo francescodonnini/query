@@ -19,10 +19,9 @@ import static org.apache.spark.sql.functions.*;
 import static org.apache.spark.sql.functions.to_timestamp;
 
 public class SecondQuerySQL extends AbstractQuery {
-    private static final int    YEAR_MONTH_COL_INDEX = 0;
-    private static final String COUNTRY_COL_NAME = "country";
-    private static final int    AVG_CARBON_INTENSITY_COL_INDEX = 2;
-    private static final int    AVG_CFE_PERCENTAGE_COL_INDEX = 3;
+    private static final int YEAR_MONTH_COL_INDEX = 0;
+    private static final int AVG_CARBON_INTENSITY_COL_INDEX = 2;
+    private static final int AVG_CFE_PERCENTAGE_COL_INDEX = 3;
     private final String outputPath;
     private final InfluxDbWriterFactory factory;
 
@@ -76,20 +75,16 @@ public class SecondQuerySQL extends AbstractQuery {
     private String selectExpression() {
         return String.join(",",
                 CommonOutputSchema.YEAR_MONTH,
-                countryColumn(),
+                ParquetField.ZONE_ID.getName(),
                 avg(ParquetField.CARBON_INTENSITY_DIRECT, CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT),
                 avg(ParquetField.CFE_PERCENTAGE, CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE));
     }
 
-    private static String countryColumn() {
-        return countryColumn(ParquetField.ZONE_ID.getName(), SecondQuerySQL.COUNTRY_COL_NAME);
-    }
-
     private static String avg(ParquetField col, String alias) {
-        return countryColumn(String.format("AVG(%s)", col.getName()), alias);
+        return column(String.format("AVG(%s)", col.getName()), alias);
     }
 
-    private static String countryColumn(String col, String alias) {
+    private static String column(String col, String alias) {
         return col + " AS " + alias;
     }
 
@@ -98,7 +93,7 @@ public class SecondQuerySQL extends AbstractQuery {
     }
 
     private static String groupByExpression() {
-        return String.join(",", CommonOutputSchema.YEAR_MONTH, COUNTRY_COL_NAME);
+        return String.join(",", CommonOutputSchema.YEAR_MONTH, ParquetField.ZONE_ID.getName());
     }
 
     private String getTopBy(String colName, boolean asc) {
@@ -110,7 +105,7 @@ public class SecondQuerySQL extends AbstractQuery {
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
         save(averages);
-        averages.drop(COUNTRY_COL_NAME)
+        averages.drop(ParquetField.ZONE_ID.getName())
                 .write()
                 .option("header", true)
                 .csv(outputPath + "-plots.csv");
@@ -126,8 +121,8 @@ public class SecondQuerySQL extends AbstractQuery {
 
     private Point from(Row row) {
         return Point.measurement("result")
-                .addField("carbonIntensity", row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
-                .addField("carbonFreeEnergyPercentage", row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
+                .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, row.getDouble(AVG_CARBON_INTENSITY_COL_INDEX))
+                .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, row.getDouble(AVG_CFE_PERCENTAGE_COL_INDEX))
                 .addTag("app", getAppName())
                 .time(getTime(row), WritePrecision.MS);
     }

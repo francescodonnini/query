@@ -91,8 +91,8 @@ public class SecondQueryRDD extends AbstractQuery {
         var key = row._1();
         var val = row._2();
         return Point.measurement("result")
-                .addField("avgCi", val._1())
-                .addField("avgCfe", val._2())
+                .addField(CommonOutputSchema.AVG_CARBON_INTENSITY_DIRECT_SHORT, val._1())
+                .addField(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE_SHORT, val._2())
                 .addTag("app", getAppName())
                 .time(getTime(key), WritePrecision.MS);
     }
