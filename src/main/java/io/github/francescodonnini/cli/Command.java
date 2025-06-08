@@ -13,6 +13,9 @@ public class Command implements Runnable {
     @Positive
     private Integer time;
 
+    @CommandLine.Option(names = "--appName", description = "Name of the Spark Application")
+    private String appName;
+
     @Override
     public void run() {
         // unused
@@ -24,5 +27,9 @@ public class Command implements Runnable {
 
     public Optional<Integer> getTime() {
         return Optional.ofNullable(time);
+    }
+
+    public Optional<String> getAppName() {
+        return Optional.ofNullable(appName);
     }
 }

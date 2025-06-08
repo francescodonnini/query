@@ -45,6 +45,10 @@ public class QueryDispatcher {
     }
 
     private static String getAppName(Command command) {
+        var appName = command.getAppName();
+        if (appName.isPresent()) {
+            return appName.get();
+        }
         var now = DateTimeFormatter
                 .ofPattern("yyyy-MM-dd-HH_mm_ss")
                 .withZone(ZoneId.systemDefault())
