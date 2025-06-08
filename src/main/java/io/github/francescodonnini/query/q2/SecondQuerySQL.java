@@ -112,7 +112,7 @@ public class SecondQuerySQL extends AbstractQuery {
     }
 
     private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
-        saveToInfluxDB(averages);
+        save(averages);
         averages.write()
                 .option("header", true)
                 .csv(outputPath + "-plots.csv");
@@ -122,7 +122,7 @@ public class SecondQuerySQL extends AbstractQuery {
                 .csv(outputPath + "-pairs.csv");
     }
 
-    private void saveToInfluxDB(Dataset<Row> dataset) {
+    private void save(Dataset<Row> dataset) {
         dataset.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
