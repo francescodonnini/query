@@ -45,8 +45,7 @@ public class SecondQueryRDD extends AbstractQuery {
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(false)));
         tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(true)));
         if (shouldSave()) {
-            save(averages);
-            save(tops);
+            save(averages, tops);
         } else {
             getSparkSession().logWarning(() -> String.format("averages count=%d%n", tops.size()));
         }
@@ -77,6 +76,11 @@ public class SecondQueryRDD extends AbstractQuery {
                 1);
     }
 
+    private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages, ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
+        save(averages);
+        save(tops);
+    }
+
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
         var csv = result.map(this::toCsv);
         csv.saveAsTextFile(outputPath + "-plots.csv");
@@ -98,7 +102,7 @@ public class SecondQueryRDD extends AbstractQuery {
     }
 
     private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
-        try (var jsc = new JavaSparkContext(getSparkSession().sparkContext())) {
+        try (var jsc = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext())) {
             var csv = jsc.parallelize(tops)
                     .map(this::toCsv);
             csv.saveAsTextFile(outputPath + "-pairs.csv");
