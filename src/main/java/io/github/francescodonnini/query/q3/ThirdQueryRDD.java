@@ -26,15 +26,6 @@ public class ThirdQueryRDD extends AbstractQuery {
         this.factory = factory;
     }
 
-    /**
-     * Facendo riferimento al dataset dei valori energetici dell’Italia e della Svezia, aggregare i dati di ciascun
-     * paese sulle 24 ore della giornata, calcolando il valor medio di “Carbon intensity gCO2 eq/kWh
-     * (direct)” e “Carbon-free energy percentage (CFE%)”. Calcolare il minimo, 25-esimo, 50-esimo, 75-
-     * esimo percentile e massimo del valor medio di “Carbon intensity gCO2 eq/kWh (direct)” e “Carbon-
-     * free energy percentage (CFE%)”. Inoltre, considerando il valor medio di “Carbon intensity gCO2eq/kWh
-     * (direct)” e “Carbon-free energy percentage (CFE%)” aggregati sulle 24 fasce orarie giornaliere, generare
-     * due grafici che consentano di confrontare visivamente l’andamento per Italia e Svezia.
-     */
     @Override
     public void submit() {
         var lines = getSparkSession().sparkContext()

@@ -23,19 +23,6 @@ public class FirstQueryRDD extends AbstractQuery {
         this.factory = factory;
     }
 
-
-    /**
-     * Facendo riferimento al dataset dei valori energetici dell’Italia e della Svezia, aggregare i dati su base
-     * annua. Calcolare la media, il minimo e il massimo di “Carbon intensity gCO2 eq/kWh (direct)” e
-     * “Carbon-free energy percentage (CFE%)” per ciascun anno dal 2021 al 2024. Inoltre, considerando il
-     * valor medio di “Carbon intensity gCO2eq/kWh (direct)” e “Carbon-free energy percentage (CFE%)”
-     * aggregati su base annua, generare due grafici che consentano di confrontare visivamente l’andamento
-     * per Italia e Svezia.
-     * csv format
-     * Datetime (UTC),Country,Zone name,Zone id,Carbon intensity gCO₂eq/kWh (direct),Carbon intensity gCO₂eq/kWh (Life cycle),Carbon-free energy percentage (CFE%),Renewable energy percentage (RE%),Data source,Data estimated,Data estimation method
-     * 2021-01-01 00:00:00,Sweden,Sweden,SE,2.54,30.02,99.42,60.13,svk.se,true,ESTIMATED_FORECASTS_HIERARCHY
-     * 2021-01-01 01:00:00,Sweden,Sweden,SE,2.6,30.32,99.4,59.52,svk.se,true,ESTIMATED_FORECASTS_HIERARCHY
-     */
     @Override
     public void submit() {
         var rdd = getSparkSession().sparkContext()
