@@ -91,7 +91,7 @@ public class FirstQueryRDD extends AbstractQuery {
     }
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Tuple2<Tuple2<Double, Double>, Tuple2<Double, Double>>, Tuple2<Double, Double>>> result) {
-        result.sortByKey()
+        result.sortByKey(new CountryYearComparator())
               .map(this::toCsv)
               .saveAsTextFile(outputPath + ".csv");
         result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
