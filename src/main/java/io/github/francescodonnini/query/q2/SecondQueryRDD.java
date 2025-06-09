@@ -102,7 +102,7 @@ public class SecondQueryRDD extends AbstractQuery {
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
         var csv = result.map(this::toCsv);
-        csv.saveAsTextFile(outputPath + "-plots.csv");
+        csv.saveAsTextFile(outputPath + "/" + "plot.csv");
         result.foreachPartition(partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 

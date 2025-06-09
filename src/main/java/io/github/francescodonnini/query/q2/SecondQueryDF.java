@@ -71,7 +71,7 @@ public class SecondQueryDF extends AbstractQuery {
         averages.drop(ParquetField.ZONE_ID.getName())
                 .write()
                 .option("header", true)
-                .csv(resultsPath + "-plots.csv");
+                .csv(resultsPath + "/" + "plot.csv");
         savePairs(ciDesc, "top-ci-desc.csv");
         savePairs(ciAsc, "top-ci-asc.csv");
         savePairs(cfeDesc, "top-cfe-desc.csv");
