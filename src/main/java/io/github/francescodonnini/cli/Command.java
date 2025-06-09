@@ -6,7 +6,7 @@ import javax.validation.constraints.Positive;
 import java.util.Optional;
 
 public class Command implements Runnable {
-    @CommandLine.Option(names = "--query", required = true, description = "Query id (1D, 1R, 2D, 2R, 2Z, 3D, 3R)")
+    @CommandLine.Option(names = "--query", required = true, description = "Query id (1D, 1R, 1S, 2D, 2R, 2S)")
     private String query;
 
     @CommandLine.Option(names = "--time", description = "Optional number of runs")

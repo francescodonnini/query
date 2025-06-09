@@ -15,7 +15,6 @@ import scala.Tuple3;
 
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 public class SecondQueryRDD extends AbstractQuery {
@@ -39,15 +38,12 @@ public class SecondQueryRDD extends AbstractQuery {
                 .reduceByKey(Operators::sum3)
                 .mapToPair(Operators::average3)
                 .sortByKey(new IntPairComparator());
-        var tops = new ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>>();
-        tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(false)));
-        tops.addAll(averages.takeOrdered(5, new CarbonIntensityComparator(true)));
-        tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(false)));
-        tops.addAll(averages.takeOrdered(5, new CfePercentageComparator(true)));
+        var ciDesc = averages.takeOrdered(5, new CarbonIntensityComparator(false));
+        var ciAsc = averages.takeOrdered(5, new CarbonIntensityComparator(true));
+        var cfeDesc = averages.takeOrdered(5, new CfePercentageComparator(false));
+        var cfeAsc = averages.takeOrdered(5, new CfePercentageComparator(true));
         if (shouldSave()) {
-            save(averages, tops);
-        } else {
-            getSparkSession().logWarning(() -> String.format("averages count=%d%n", tops.size()));
+            save(averages, ciDesc, ciAsc, cfeDesc, cfeAsc);
         }
     }
 
@@ -76,10 +72,33 @@ public class SecondQueryRDD extends AbstractQuery {
                 1);
     }
 
-    private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages, ArrayList<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
+    private void save(
+            JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> averages,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> ciDesc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> ciAsc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> cfeDesc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> cfeAsc) {
         save(averages);
-        save(tops);
+        save(ciDesc, ciAsc, cfeDesc, cfeAsc);
     }
+
+    private void save(
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> ciDesc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> ciAsc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> cfeDesc,
+            List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> cfeAsc) {
+        try (var jsc = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext())) {
+            save(jsc.parallelizePairs(ciDesc, 1), "top-ci-desc.csv");
+            save(jsc.parallelizePairs(ciAsc, 1), "top-ci-asc.csv");
+            save(jsc.parallelizePairs(cfeDesc, 1), "top-cfe-desc.csv");
+            save(jsc.parallelizePairs(cfeAsc, 1), "top-cfe-asc.csv");
+        }
+    }
+
+    private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> top, String fileName) {
+        top.map(this::toCsv).saveAsTextFile(outputPath + "/" + fileName);
+    }
+
 
     private void save(JavaPairRDD<Tuple2<Integer, Integer>, Tuple2<Double, Double>> result) {
         var csv = result.map(this::toCsv);
@@ -99,14 +118,6 @@ public class SecondQueryRDD extends AbstractQuery {
 
     private Instant getTime(Tuple2<Integer, Integer> key) {
         return TimeUtils.fromYearAndMonth(key._1(), key._2());
-    }
-
-    private void save(List<Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>>> tops) {
-        try (var jsc = JavaSparkContext.fromSparkContext(getSparkSession().sparkContext())) {
-            var csv = jsc.parallelizePairs(tops, 1)
-                    .map(this::toCsv);
-            csv.saveAsTextFile(outputPath + "-pairs.csv");
-        }
     }
 
     private String toCsv(Tuple2<Tuple2<Integer, Integer>, Tuple2<Double, Double>> x) {

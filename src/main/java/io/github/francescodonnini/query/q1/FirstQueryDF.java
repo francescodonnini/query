@@ -49,7 +49,8 @@ public class FirstQueryDF extends AbstractQuery {
     }
 
     private void save(Dataset<Row> df) {
-        df.write()
+        df.orderBy(col(CommonOutputSchema.COUNTRY), col(CommonOutputSchema.YEAR))
+          .write()
           .option("header", true)
           .csv(outputPath);
         df.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));

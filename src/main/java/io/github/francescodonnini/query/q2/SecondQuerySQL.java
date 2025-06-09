@@ -49,13 +49,10 @@ public class SecondQuerySQL extends AbstractQuery {
                 .sql(getTopBy(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, false));
         var cfeAsc = result.sqlContext()
                 .sql(getTopBy(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE, true));
-        var sortedPairs = ciDesc.unionByName(ciAsc)
-                .unionByName(cfeDesc)
-                .unionByName(cfeAsc);
         if (shouldSave()) {
-            save(result, sortedPairs);
+            save(result, ciDesc, ciAsc, cfeDesc, cfeAsc);
         } else {
-            collect(result, sortedPairs);
+            collect(result, ciDesc, ciAsc, cfeDesc, cfeAsc);
         }
     }
 
@@ -103,19 +100,29 @@ public class SecondQuerySQL extends AbstractQuery {
                 + "LIMIT " + 5;
     }
 
-    private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+    private void save(Dataset<Row> averages, Dataset<Row> ciDesc, Dataset<Row> ciAsc, Dataset<Row> cfeDesc, Dataset<Row> cfeAsc) {
         save(averages);
+        save(ciDesc, "top-ci-desc.csv");
+        save(ciAsc, "top-ci-asc.csv");
+        save(cfeDesc, "top-cfe-desc.csv");
+        save(cfeAsc, "top-cfe-asc.csv");
+    }
+
+    private void save(Dataset<Row> averages) {
+        saveToInfluxDB(averages);
         averages.drop(ParquetField.ZONE_ID.getName())
                 .write()
                 .option("header", true)
-                .csv(outputPath + "-plots.csv");
-        sortedPairs
-                .write()
-                .option("header", true)
-                .csv(outputPath + "-pairs.csv");
+                .csv(outputPath + "/" + "plot.csv");
     }
 
-    private void save(Dataset<Row> dataset) {
+    private void save(Dataset<Row> top, String fileName) {
+        top.write()
+           .option("header", true)
+           .csv(outputPath + "/" + fileName);
+    }
+
+    private void saveToInfluxDB(Dataset<Row> dataset) {
         dataset.foreachPartition((ForeachPartitionFunction<Row>) partition -> InfluxDbUtils.save(factory, partition, this::from));
     }
 
@@ -131,9 +138,12 @@ public class SecondQuerySQL extends AbstractQuery {
         return TimeUtils.fromYearAndMonth(row.getString(YEAR_MONTH_COL_INDEX));
     }
 
-    private void collect(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+    private void collect(Dataset<Row> averages, Dataset<Row> ciDesc, Dataset<Row> ciAsc, Dataset<Row> cfeDesc, Dataset<Row> cfeAsc) {
         var avgList = averages.collectAsList();
-        var pairList = sortedPairs.collectAsList();
+        var pairList = ciDesc.unionByName(ciAsc)
+                .unionByName(cfeDesc)
+                .unionByName(cfeAsc)
+                .collectAsList();
         getSparkSession().logWarning(() -> String.format("#averageList = %d, #sortedPairs = %d%n", avgList.size(), pairList.size()));
     }
 }

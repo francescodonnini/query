@@ -54,13 +54,10 @@ public class SecondQueryDF extends AbstractQuery {
         var cfeAsc = averages
                 .orderBy(col(CommonOutputSchema.AVG_CARBON_FREE_ENERGY_PERCENTAGE).asc())
                 .limit(5);
-        var sortedPairs = ciDesc.unionByName(ciAsc)
-                .unionByName(cfeDesc)
-                .unionByName(cfeAsc);
         if (shouldSave()) {
-            save(averages, sortedPairs);
+            save(averages, ciDesc, ciAsc, cfeDesc, cfeAsc);
         } else {
-            collect(averages, sortedPairs);
+            collect(averages, ciDesc, ciAsc, cfeDesc, cfeAsc);
         }
 
     }
@@ -69,16 +66,22 @@ public class SecondQueryDF extends AbstractQuery {
         return date_format(to_timestamp(col(ParquetField.DATETIME_UTC.getName()), ParquetField.DATETIME_FORMAT), "yyyy-MM");
     }
 
-    private void save(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+    private void save(Dataset<Row> averages, Dataset<Row> ciDesc, Dataset<Row> ciAsc, Dataset<Row> cfeDesc, Dataset<Row> cfeAsc) {
         saveToInfluxDB(averages);
         averages.drop(ParquetField.ZONE_ID.getName())
                 .write()
                 .option("header", true)
                 .csv(resultsPath + "-plots.csv");
-        sortedPairs
-                .write()
+        savePairs(ciDesc, "top-ci-desc.csv");
+        savePairs(ciAsc, "top-ci-asc.csv");
+        savePairs(cfeDesc, "top-cfe-desc.csv");
+        savePairs(cfeAsc, "top-cfe-asc.csv");
+    }
+
+    private void savePairs(Dataset<Row> pairs, String fileName) {
+         pairs.write()
                 .option("header", true)
-                .csv(resultsPath + "-pairs.csv");
+                .csv(resultsPath + "/" + fileName);
     }
 
     private void saveToInfluxDB(Dataset<Row> dataset) {
@@ -97,9 +100,12 @@ public class SecondQueryDF extends AbstractQuery {
         return TimeUtils.fromYearAndMonth(row.getString(YEAR_MONTH_COL_INDEX));
     }
 
-    private void collect(Dataset<Row> averages, Dataset<Row> sortedPairs) {
+    private void collect(Dataset<Row> averages, Dataset<Row> ciDesc, Dataset<Row> ciAsc, Dataset<Row> cfeDesc, Dataset<Row> cfeAsc) {
         var avgList = averages.collectAsList();
-        var pairList = sortedPairs.collectAsList();
+        var pairList = ciDesc.unionByName(ciAsc)
+                .unionByName(cfeDesc)
+                .unionByName(cfeAsc)
+                .collectAsList();
         getSparkSession().logWarning(() -> String.format("#averageList = %d, #sortedPairs = %d%n", avgList.size(), pairList.size()));
     }
 }

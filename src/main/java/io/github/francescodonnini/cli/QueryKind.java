@@ -19,14 +19,8 @@ public enum QueryKind implements Serializable {
                 return Q2_RDD;
             case "2S":
                 return Q2_SQL;
-            case "2Z":
-                return Q2_ZIPPED;
-            case "3D":
-                return Q3_DF;
-            case "3R":
-                return Q3_RDD;
             default:
-                throw new IllegalArgumentException("invalid query number: expected one of 1D, 1R, 2D, 2R, 2Z, 3D, 3R but got " + s);
+                throw new IllegalArgumentException("invalid query number: expected one of 1D, 1R, 2D, 2R but got " + s);
         }
     }
 }

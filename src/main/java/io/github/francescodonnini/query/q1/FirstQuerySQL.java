@@ -79,7 +79,8 @@ public class FirstQuerySQL extends AbstractQuery {
     }
 
     private void save(Dataset<Row> result) {
-        result.write()
+        result.orderBy(CommonOutputSchema.COUNTRY, CommonOutputSchema.YEAR)
+                .write()
                 .option("header", true)
                 .csv(outputPath);
         result.foreachPartition((ForeachPartitionFunction<Row>) p -> InfluxDbUtils.save(factory, p, this::createPoint));

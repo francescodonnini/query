@@ -12,9 +12,7 @@ import io.github.francescodonnini.query.q1.FirstQueryRDD;
 import io.github.francescodonnini.query.q1.FirstQuerySQL;
 import io.github.francescodonnini.query.q2.SecondQueryDF;
 import io.github.francescodonnini.query.q2.SecondQueryRDD;
-import io.github.francescodonnini.query.q2.SecondQueryRDDZipped;
 import io.github.francescodonnini.query.q2.SecondQuerySQL;
-import io.github.francescodonnini.query.q3.ThirdQueryRDD;
 import picocli.CommandLine;
 
 import java.time.Duration;
@@ -114,10 +112,6 @@ public class QueryDispatcher {
                 return new SecondQueryRDD(spark, inputPath, save, outputPath, factory);
             case Q2_SQL:
                 return new SecondQuerySQL(spark, inputPath, save, outputPath, factory);
-            case Q2_ZIPPED:
-                return new SecondQueryRDDZipped(spark, inputPath, save, outputPath, factory);
-            case Q3_RDD:
-                return new ThirdQueryRDD(spark, inputPath, save, outputPath, factory);
             default:
                 throw new IllegalArgumentException("invalid query " + command.getQueryKind());
         }
