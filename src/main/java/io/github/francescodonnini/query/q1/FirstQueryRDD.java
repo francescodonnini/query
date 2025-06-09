@@ -27,13 +27,17 @@ public class FirstQueryRDD extends AbstractQuery {
     public void submit() {
         var rdd = getSparkSession().sparkContext()
                 .textFile(getInputPath(), 1)
-                .toJavaRDD();
-        var averages = rdd.mapToPair(this::getKVPair)
+                .toJavaRDD()
+                .mapToPair(this::getKVPair);
+        var averages = rdd
                         .reduceByKey(Operators::sum3)
                         .mapToPair(Operators::average3);
-        var pairs = rdd.mapToPair(this::getPairs);
-        var max = pairs.reduceByKey(this::getMax);
-        var min = pairs.reduceByKey(this::getMin);
+        var max = rdd
+                    .reduceByKey(this::getMax)
+                    .mapToPair(this::getDoubles);
+        var min = rdd
+                    .reduceByKey(this::getMin)
+                    .mapToPair(this::getDoubles);
         if (shouldSave()) {
             save(averages, min, max);
         } else {
@@ -44,23 +48,6 @@ public class FirstQueryRDD extends AbstractQuery {
     private Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Integer>> getKVPair(String line) {
         var fields = getFields(line);
         return new Tuple2<>(getKey(fields), new Tuple3<>(getCID(fields), getCFE(fields), 1));
-    }
-
-    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getPairs(String line) {
-        var fields = getFields(line);
-        return new Tuple2<>(getKey(fields), new Tuple2<>(getCID(fields), getCFE(fields)));
-    }
-
-    private String[] getFields(String line) {
-        return line.split(",");
-    }
-
-    private Tuple2<Double, Double> getMax(Tuple2<Double, Double> x, Tuple2<Double, Double> y) {
-        return new Tuple2<>(Math.max(x._1(), y._1()), Math.max(x._2(), y._2()));
-    }
-
-    private Tuple2<Double, Double> getMin(Tuple2<Double, Double> x, Tuple2<Double, Double> y) {
-        return new Tuple2<>(Math.min(x._1(), y._1()), Math.min(x._2(), y._2()));
     }
 
     private double getCFE(String[] fields) {
@@ -81,6 +68,22 @@ public class FirstQueryRDD extends AbstractQuery {
 
     private Integer getYear(String[] fields) {
         return LocalDateTime.parse(fields[CsvField.DATETIME_UTC.getIndex()], formatter).getYear();
+    }
+
+    private String[] getFields(String line) {
+        return line.split(",");
+    }
+
+    private Tuple3<Double, Double, Integer> getMax(Tuple3<Double, Double, Integer> x, Tuple3<Double, Double, Integer> y) {
+        return new Tuple3<>(Math.max(x._1(), y._1()), Math.max(x._2(), y._2()), 1);
+    }
+
+    private Tuple3<Double, Double, Integer> getMin(Tuple3<Double, Double, Integer> x, Tuple3<Double, Double, Integer> y) {
+        return new Tuple3<>(Math.min(x._1(), y._1()), Math.min(x._2(), y._2()), 1);
+    }
+
+    private Tuple2<Tuple2<String, Integer>, Tuple2<Double, Double>> getDoubles(Tuple2<Tuple2<String, Integer>, Tuple3<Double, Double, Integer>> x) {
+        return new Tuple2<>(x._1(), new Tuple2<>(x._2()._1(), x._2()._2()));
     }
 
     private void save(JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> averages, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> min, JavaPairRDD<Tuple2<String, Integer>, Tuple2<Double, Double>> max) {
